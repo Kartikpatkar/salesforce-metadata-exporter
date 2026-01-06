@@ -384,9 +384,17 @@ class SalesforceConnector {
      */
     _getApiBaseFromHostname(hostname, protocol = 'https:') {
         if (!hostname) return null;
+        
+        // Transform lightning.force.com -> my.salesforce.com
         if (hostname.endsWith('.lightning.force.com')) {
             return `${protocol}//${hostname.replace('.lightning.force.com', '.my.salesforce.com')}`;
         }
+        
+        // Transform salesforce-setup.com -> salesforce.com (for Setup pages)
+        if (hostname.includes('.salesforce-setup.com')) {
+            return `${protocol}//${hostname.replace('.salesforce-setup.com', '.salesforce.com')}`;
+        }
+        
         return `${protocol}//${hostname}`;
     }
 

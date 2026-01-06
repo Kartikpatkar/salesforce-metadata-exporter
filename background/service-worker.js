@@ -121,6 +121,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleSwitchOrg(sendResponse);
       return true;
     
+    case 'GET_METADATA_TYPES':
+      handleGetMetadataTypes(message.payload, sendResponse);
+      return true;
+    
     case 'START_EXPORT':
       handleStartExport(message.payload, sendResponse);
       return true; // Keep channel open for async response
@@ -187,6 +191,36 @@ async function handleSwitchOrg(sendResponse) {
   }
 }
 
+/**
+ * Handle GET_METADATA_TYPES message - get available metadata types from org
+ */
+async function handleGetMetadataTypes(payload, sendResponse) {
+  try {
+    console.log('[Service Worker] Fetching metadata types...');
+    
+    const { orgInfo } = payload;
+    if (!orgInfo || !orgInfo.sessionId) {
+      throw new Error('Not authenticated');
+    }
+    
+    // Create API client instance
+    const api = new SalesforceMetadataAPI(orgInfo);
+    
+    // Fetch metadata types
+    const metadataTypes = await api.describeMetadata();
+    
+    // Sort alphabetically for better UX
+    metadataTypes.sort((a, b) => a.xmlName.localeCompare(b.xmlName));
+    
+    console.log('[Service Worker] Retrieved metadata types:', metadataTypes.length);
+    sendResponse({ success: true, metadataTypes });
+    
+  } catch (error) {
+    console.error('[Service Worker] Get metadata types failed:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
 // ========================================
 // EXPORT WORKFLOW ORCHESTRATION
 // ========================================
@@ -219,22 +253,24 @@ async function handleStartExport(payload, sendResponse) {
       throw new Error('No metadata types selected');
     }
     
-    // TODO: Step 1 - Generate package.xml
+    // Step 1 - Generate package.xml
     const packageXML = generatePackageXML(metadataTypes, orgInfo.apiVersion);
     
-    // TODO: Step 2 - Call Metadata API retrieve()
+    // Step 2 - Call Metadata API retrieve()
     const retrieveId = await initiateMetadataRetrieve(orgInfo, packageXML);
     
-    // TODO: Step 3 - Store retrieve ID and start polling
+    // Step 3 - Store retrieve ID and start polling
     await storeExportState({
       retrieveId,
       orgInfo,
       status: 'InProgress',
-      startTime: Date.now()
+      startTime: Date.now(),
+      downloaded: false  // Track if already downloaded
     });
     
-    // Start polling alarm (every 5 seconds)
-    chrome.alarms.create('pollRetrieveStatus', { periodInMinutes: 5 / 60 }); // 5 seconds
+    // Don't use alarm polling - let the UI poll via GET_EXPORT_STATUS
+    // This prevents duplicate downloads from race conditions
+    // chrome.alarms.create('pollRetrieveStatus', { periodInMinutes: 5 / 60 }); // 5 seconds
     
     sendResponse({ success: true, retrieveId });
     
@@ -258,11 +294,14 @@ async function handleStartExport(payload, sendResponse) {
  * @returns {string} package.xml content
  */
 function generatePackageXML(metadataTypes, apiVersion) {
-  // TODO: Use PackageXMLGenerator module
   console.log('[Service Worker] Generating package.xml...', metadataTypes);
   
   const generator = new PackageXMLGenerator(apiVersion);
-  return generator.generate(metadataTypes);
+  const packageXML = generator.generate(metadataTypes);
+  
+  console.log('[Service Worker] Generated package.xml:', packageXML);
+  
+  return packageXML;
 }
 
 /**
@@ -342,9 +381,15 @@ async function pollRetrieveStatus() {
       return;
     }
     
+    // If already downloaded, stop polling
+    if (state.downloaded) {
+      console.log('[Service Worker] Export already downloaded, stopping poll');
+      chrome.alarms.clear('pollRetrieveStatus');
+      return;
+    }
+    
     console.log('[Service Worker] Polling retrieve status...', state.retrieveId);
     
-    // TODO: Call Salesforce API to check status
     const api = new SalesforceMetadataAPI(state.orgInfo);
     const status = await api.checkRetrieveStatus(state.retrieveId);
     
@@ -358,7 +403,10 @@ async function pollRetrieveStatus() {
     
     // Check if retrieve is complete
     if (status.done) {
+      // CRITICAL: Clear alarm and mark downloaded FIRST to prevent race condition
       chrome.alarms.clear('pollRetrieveStatus');
+      state.downloaded = true;
+      await storeExportState(state);
       
       if (status.success) {
         await handleRetrieveComplete(status.zipFile, state);
@@ -391,7 +439,7 @@ async function handleRetrieveComplete(zipFileBase64, state) {
   try {
     console.log('[Service Worker] Retrieve complete, processing ZIP...');
     
-    // TODO: Use ZipHandler to process and download ZIP
+    // Use ZipHandler to process and download ZIP
     const zipHandler = new ZipHandler();
     await zipHandler.downloadZip(zipFileBase64, generateFilename(state.orgInfo));
     
@@ -405,6 +453,26 @@ async function handleRetrieveComplete(zipFileBase64, state) {
     console.error('[Service Worker] Failed to download ZIP:', error);
     await clearExportState();
     notifyPopup('EXPORT_ERROR', { error: error.message });
+  }
+}
+
+/**
+ * Download ZIP file from base64 data
+ * @param {string} zipFileBase64 - Base64-encoded ZIP data
+ * @param {Object} state - Export state
+ */
+async function downloadZipFile(zipFileBase64, state) {
+  try {
+    console.log('[Service Worker] Processing ZIP for download...');
+    
+    const zipHandler = new ZipHandler();
+    await zipHandler.downloadZip(zipFileBase64, generateFilename(state.orgInfo));
+    
+    console.log('[Service Worker] ZIP download triggered');
+    
+  } catch (error) {
+    console.error('[Service Worker] Failed to download ZIP:', error);
+    throw error;
   }
 }
 
@@ -430,7 +498,58 @@ function generateFilename(orgInfo) {
 async function handleGetExportStatus(sendResponse) {
   try {
     const state = await getExportState();
-    sendResponse({ success: true, state });
+    
+    if (!state) {
+      sendResponse({ success: true, status: 'NotStarted', progress: 0, message: 'No export in progress' });
+      return;
+    }
+    
+    // If already downloaded, don't check again
+    if (state.downloaded) {
+      sendResponse({ 
+        success: true, 
+        status: 'Succeeded',
+        progress: 100,
+        message: '✅ Export complete!',
+        done: true
+      });
+      return;
+    }
+    
+    // Check with Salesforce API
+    const api = new SalesforceMetadataAPI(state.orgInfo);
+    const retrieveStatus = await api.checkRetrieveStatus(state.retrieveId);
+    
+    // Update state with latest status
+    state.status = retrieveStatus.state;
+    state.done = retrieveStatus.done;
+    
+    // If complete, trigger download
+    if (retrieveStatus.done && retrieveStatus.success && retrieveStatus.zipFile) {
+      // Mark downloaded FIRST to prevent any race condition
+      state.downloaded = true;
+      await storeExportState(state);
+      
+      console.log('[Service Worker] Triggering download from GET_EXPORT_STATUS');
+      await downloadZipFile(retrieveStatus.zipFile, state);
+      await clearExportState();
+    } else {
+      await storeExportState(state);
+    }
+    
+    const progress = retrieveStatus.done ? 100 : 60;
+    const message = retrieveStatus.done 
+      ? (retrieveStatus.success ? '✅ Export complete!' : '❌ Export failed')
+      : 'Processing metadata...';
+    
+    sendResponse({ 
+      success: true, 
+      status: retrieveStatus.state,
+      progress,
+      message,
+      done: retrieveStatus.done
+    });
+    
   } catch (error) {
     console.error('[Service Worker] Failed to get export status:', error);
     sendResponse({ success: false, error: error.message });

@@ -211,7 +211,7 @@ function extractInstanceFromUrl(url) {
  * Display org information in the UI
  * @param {Object} org - Org object from SalesforceConnector
  */
-function displayOrgInfo(org) {
+async function displayOrgInfo(org) {
   if (!org || !org.isAuthenticated) {
     elements.orgStatus.textContent = '⚠️ Not connected to Salesforce';
     elements.orgDetails.classList.add('hidden');
@@ -248,6 +248,88 @@ function displayOrgInfo(org) {
   if (elements.switchOrgBtn) elements.switchOrgBtn.style.display = 'inline-block';
   
   updateExportButtonState();
+  
+  // Load dynamic metadata types from org
+  await loadMetadataTypes();
+}
+
+// ========================================
+// METADATA TYPES LOADING
+// ========================================
+
+/**
+ * Load available metadata types from the connected org
+ */
+async function loadMetadataTypes() {
+  console.log('[App] Loading metadata types from org...');
+  
+  try {
+    // Show loading state
+    const metadataSection = document.getElementById('metadata-types');
+    metadataSection.innerHTML = '<p style="text-align: center; padding: 20px;">Loading metadata types...</p>';
+    
+    // Request metadata types from background worker
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_METADATA_TYPES',
+      payload: { orgInfo }
+    });
+    
+    if (response.success && response.metadataTypes) {
+      renderMetadataTypes(response.metadataTypes);
+      await loadSavedSelections();
+    } else {
+      throw new Error(response.error || 'Failed to load metadata types');
+    }
+    
+  } catch (error) {
+    console.error('[App] Failed to load metadata types:', error);
+    showError('Failed to load metadata types: ' + error.message);
+    
+    // Fallback to empty state
+    const metadataSection = document.getElementById('metadata-types');
+    metadataSection.innerHTML = '<p style="color: #c23934;">Failed to load metadata types. Please refresh.</p>';
+  }
+}
+
+/**
+ * Render metadata type checkboxes dynamically
+ * @param {Array} metadataTypes - Array of metadata type objects from describeMetadata
+ */
+function renderMetadataTypes(metadataTypes) {
+  console.log('[App] Rendering metadata types:', metadataTypes.length);
+  
+  const metadataSection = document.getElementById('metadata-types');
+  metadataSection.innerHTML = ''; // Clear loading state
+  
+  if (metadataTypes.length === 0) {
+    metadataSection.innerHTML = '<p>No metadata types available</p>';
+    return;
+  }
+  
+  // Create checkbox for each metadata type
+  metadataTypes.forEach(type => {
+    const label = document.createElement('label');
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = type.xmlName;
+    checkbox.addEventListener('change', handleMetadataSelection);
+    
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(type.xmlName));
+    
+    // Add tooltip with directory name if available
+    if (type.directoryName) {
+      label.title = `Directory: ${type.directoryName}`;
+    }
+    
+    metadataSection.appendChild(label);
+  });
+  
+  // Update checkbox references for preset buttons
+  elements.metadataCheckboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
+  
+  console.log('[App] Rendered metadata type checkboxes:', elements.metadataCheckboxes.length);
 }
 
 // ========================================
@@ -421,21 +503,29 @@ async function startExport() {
     exportInProgress = true;
     showExportProgress('Preparing metadata export...');
     
-    // TODO: Send message to background service worker to initiate export
-    // The background worker will:
-    // 1. Create package.xml
-    // 2. Call Salesforce Metadata API retrieve()
-    // 3. Poll retrieveRequest status
-    // 4. Trigger download of ZIP file
-    
+    // Send message to background service worker to initiate export
     console.log('[App] Starting metadata export...', {
       types: Array.from(selectedMetadataTypes),
       orgInfo
     });
     
-    // STUB: Simulate export process
-    // REMOVE IN PRODUCTION
-    await simulateExportProcess();
+    const response = await chrome.runtime.sendMessage({
+      type: 'START_EXPORT',
+      payload: {
+        orgInfo,
+        metadataTypes: Array.from(selectedMetadataTypes)
+      }
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Export failed');
+    }
+    
+    console.log('[App] Export initiated:', response.retrieveId);
+    showExportProgress('Export in progress...', 50);
+    
+    // Poll for export status
+    await pollExportStatus();
     
   } catch (error) {
     console.error('[App] Export failed:', error);
@@ -444,6 +534,44 @@ async function startExport() {
     exportInProgress = false;
     hideExportProgress();
   }
+}
+
+/**
+ * Poll export status until complete
+ */
+async function pollExportStatus() {
+  const maxAttempts = 60; // 5 minutes (5 seconds * 60)
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_EXPORT_STATUS'
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to get export status');
+    }
+    
+    const { status, progress, message } = response;
+    
+    showExportProgress(message || 'Processing...', progress || 50);
+    
+    if (status === 'Succeeded') {
+      showExportProgress('✅ Export complete! Download started.', 100);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return;
+    }
+    
+    if (status === 'Failed') {
+      throw new Error('Export failed on server');
+    }
+    
+    attempts++;
+  }
+  
+  throw new Error('Export timed out');
 }
 
 /**
