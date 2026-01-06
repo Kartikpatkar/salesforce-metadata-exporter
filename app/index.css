@@ -1,0 +1,455 @@
+/* 
+ * Salesforce Metadata Exporter - Full Page App Styles
+ * Clean, professional UI optimized for full-page experience
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 14px;
+  color: #333;
+  background: #f5f7fa;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Container */
+.container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+header {
+  background: linear-gradient(135deg, #00a1e0 0%, #0070d2 100%);
+  color: white;
+  padding: 32px 0;
+  box-shadow: 0 2px 8px rgba(0, 112, 210, 0.2);
+}
+
+header h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+
+header .subtitle {
+  font-size: 16px;
+  opacity: 0.95;
+  font-weight: 400;
+}
+
+/* Main Content */
+main {
+  flex: 1;
+  padding: 32px 0;
+}
+
+/* Card Sections */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.card h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0070d2;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Org Info Box */
+.info-box {
+  background: #f8f9fb;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  padding: 20px;
+  font-size: 14px;
+}
+
+#org-status {
+  font-size: 15px;
+  color: #666;
+}
+
+.org-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.org-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.org-detail-item strong {
+  color: #0070d2;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.org-detail-item span {
+  color: #333;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Auth Control Buttons */
+#auth-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.auth-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  background: #0070d2;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-btn:hover {
+  background: #005fb2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 112, 210, 0.3);
+}
+
+.auth-btn:active {
+  transform: translateY(0);
+}
+
+.auth-btn.secondary {
+  background: #f3f3f3;
+  color: #333;
+  border: 2px solid #c9c9c9;
+}
+
+.auth-btn.secondary:hover {
+  background: #e5e5e5;
+  border-color: #999;
+}
+
+/* Preset Buttons */
+#preset-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.preset-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 2px solid #0070d2;
+  background: white;
+  color: #0070d2;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preset-btn:hover {
+  background: #0070d2;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 112, 210, 0.3);
+}
+
+.preset-btn:active {
+  transform: translateY(0);
+}
+
+.preset-btn.secondary {
+  border-color: #c9c9c9;
+  color: #666;
+}
+
+.preset-btn.secondary:hover {
+  background: #f3f3f3;
+  color: #333;
+  border-color: #999;
+}
+
+/* Checkbox Grid */
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 2px solid #e5e9f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.checkbox-grid label:hover {
+  background: #f8f9fb;
+  border-color: #0070d2;
+}
+
+.checkbox-grid input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #0070d2;
+}
+
+.checkbox-grid input[type="checkbox"]:checked + label {
+  background: #f0f8ff;
+  border-color: #0070d2;
+}
+
+/* Package Preview */
+#package-preview {
+  background: #2d3748;
+  color: #e2e8f0;
+  padding: 20px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13px;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  max-height: 500px;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.secondary-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #f3f3f3;
+  border: 2px solid #c9c9c9;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.secondary-btn:hover {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+/* Export Button */
+.primary-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #00a1e0 0%, #0070d2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 112, 210, 0.3);
+}
+
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 112, 210, 0.4);
+}
+
+.primary-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primary-btn:disabled {
+  background: #c9c9c9;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* Export Status */
+#export-status {
+  margin-top: 20px;
+  text-align: center;
+}
+
+#status-message {
+  font-size: 15px;
+  color: #0070d2;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+progress {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+progress::-webkit-progress-bar {
+  background: #e5e9f0;
+  border-radius: 4px;
+}
+
+progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #00a1e0, #0070d2);
+  border-radius: 4px;
+}
+
+progress::-moz-progress-bar {
+  background: linear-gradient(90deg, #00a1e0, #0070d2);
+  border-radius: 4px;
+}
+
+/* Error Message */
+.error {
+  color: #c23934;
+  background: #fef0ef;
+  border: 2px solid #fcc;
+  padding: 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 16px;
+  font-weight: 500;
+}
+
+/* Footer */
+footer {
+  background: white;
+  border-top: 1px solid #e5e9f0;
+  padding: 24px 0;
+  margin-top: auto;
+}
+
+.help-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #666;
+  text-align: center;
+}
+
+.help-text strong {
+  color: #0070d2;
+  font-weight: 600;
+}
+
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  header {
+    padding: 24px 0;
+  }
+
+  header h1 {
+    font-size: 24px;
+  }
+
+  header .subtitle {
+    font-size: 14px;
+  }
+
+  main {
+    padding: 20px 0;
+  }
+
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-size: 18px;
+  }
+
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #preset-buttons {
+    flex-direction: column;
+  }
+
+  .preset-btn {
+    width: 100%;
+  }
+
+  .org-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading State */
+.loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #0070d2;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

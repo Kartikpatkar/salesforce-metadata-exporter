@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "Salesforce Metadata Exporter",
+  "version": "1.0.0",
+  "description": "Export Salesforce metadata (not data) as a ZIP file using the Metadata API. Requires active Salesforce session.",
+  
+  "icons": {
+    "16": "icons/icon16.jpg",
+    "48": "icons/icon16.jpg",
+    "128": "icons/icon16.jpg"
+  },
+
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.jpg",
+      "48": "icons/icon16.jpg",
+      "128": "icons/icon16.jpg"
+    },
+    "default_title": "Salesforce Metadata Exporter"
+  },
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.salesforce.com/*",
+        "https://*.lightning.force.com/*",
+        "https://*.my.salesforce.com/*",
+        "https://*.visual.force.com/*"
+      ],
+      "js": ["content/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "permissions": [
+    "storage",
+    "downloads",
+    "activeTab",
+    "tabs",
+    "cookies",
+    "scripting",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "https://*.salesforce.com/*",
+    "https://*.lightning.force.com/*",
+    "https://*.my.salesforce.com/*",
+    "https://*.visual.force.com/*",
+    "https://*.force.com/*",
+    "https://*.salesforce-setup.com/*",
+    "https://*.my.salesforce-setup.com/*",
+    "https://login.salesforce.com/*",
+    "https://test.salesforce.com/*"
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+
+  "minimum_chrome_version": "88"
+}

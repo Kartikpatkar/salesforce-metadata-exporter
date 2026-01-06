@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Salesforce Metadata Exporter</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <!-- HEADER: Extension Title -->
+  <header>
+    <div class="container">
+      <h1>⚡ Salesforce Metadata Exporter</h1>
+      <p class="subtitle">Export metadata from your Salesforce org as a downloadable ZIP file</p>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="container">
+    <!-- SECTION 1: Org Detection Display -->
+    <section id="org-info-section" class="card">
+      <h2>🌐 Detected Org</h2>
+      <div id="org-info" class="info-box">
+        <p id="org-status">Detecting Salesforce org...</p>
+        <div id="org-details" class="hidden">
+          <div class="org-detail-grid">
+            <div class="org-detail-item">
+              <strong>Org URL:</strong>
+              <span id="org-url">-</span>
+            </div>
+            <div class="org-detail-item">
+              <strong>Instance:</strong>
+              <span id="org-instance">-</span>
+            </div>
+            <div class="org-detail-item">
+              <strong>Org ID:</strong>
+              <span id="org-id">-</span>
+            </div>
+            <div class="org-detail-item">
+              <strong>API Version:</strong>
+              <span id="api-version">-</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Auth Control Buttons -->
+        <div id="auth-controls" style="margin-top: 15px;">
+          <button id="login-btn" class="auth-btn">Login to Production</button>
+          <button id="login-sandbox-btn" class="auth-btn secondary">Login to Sandbox</button>
+          <button id="switch-org-btn" class="auth-btn secondary" style="display: none;">Switch Org</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Metadata Selection -->
+    <section id="metadata-selection-section" class="card">
+      <h2>📦 Select Metadata Types</h2>
+      
+      <!-- Preset Buttons -->
+      <div id="preset-buttons">
+        <button id="preset-apex" class="preset-btn">Apex Only</button>
+        <button id="preset-object-model" class="preset-btn">Object Model</button>
+        <button id="preset-declarative" class="preset-btn">Declarative Config</button>
+        <button id="preset-security" class="preset-btn">Security Basics</button>
+        <button id="preset-clear" class="preset-btn secondary">Clear All</button>
+      </div>
+
+      <!-- Metadata Type Checkboxes -->
+      <div id="metadata-types" class="checkbox-grid">
+        <label><input type="checkbox" value="CustomObject" data-category="object"> Custom Objects</label>
+        <label><input type="checkbox" value="CustomField" data-category="object"> Custom Fields</label>
+        <label><input type="checkbox" value="ValidationRule" data-category="declarative"> Validation Rules</label>
+        <label><input type="checkbox" value="RecordType" data-category="object"> Record Types</label>
+        <label><input type="checkbox" value="Layout" data-category="declarative"> Page Layouts</label>
+        <label><input type="checkbox" value="ApexClass" data-category="apex"> Apex Classes</label>
+        <label><input type="checkbox" value="ApexTrigger" data-category="apex"> Apex Triggers</label>
+        <label><input type="checkbox" value="Flow" data-category="declarative"> Flows</label>
+        <label><input type="checkbox" value="PermissionSet" data-category="security"> Permission Sets</label>
+        <label><input type="checkbox" value="CustomMetadata" data-category="declarative"> Custom Metadata Types</label>
+      </div>
+    </section>
+
+    <!-- SECTION 3: package.xml Preview (Collapsible) -->
+    <section id="package-preview-section" class="card">
+      <h2>📄 package.xml Preview</h2>
+      <button id="toggle-preview" class="secondary-btn">Show Preview</button>
+      <pre id="package-preview" class="hidden"><code><!-- Generated package.xml will appear here --></code></pre>
+    </section>
+
+    <!-- SECTION 4: Export Controls -->
+    <section id="export-section" class="card">
+      <button id="export-btn" class="primary-btn" disabled>
+        🚀 Export Metadata
+      </button>
+      <div id="export-status" class="hidden">
+        <p id="status-message">Preparing export...</p>
+        <progress id="export-progress" max="100" value="0"></progress>
+      </div>
+      <p id="error-message" class="error hidden"></p>
+    </section>
+  </main>
+
+  <!-- FOOTER: Info/Help -->
+  <footer>
+    <div class="container">
+      <p class="help-text">
+        ℹ️ This exports <strong>metadata only</strong> (no data records). 
+        Uses your active Salesforce session.
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>
