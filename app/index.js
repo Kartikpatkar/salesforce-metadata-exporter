@@ -39,6 +39,7 @@ const elements = {
   presetObjectModel: document.getElementById('preset-object-model'),
   presetDeclarative: document.getElementById('preset-declarative'),
   presetSecurity: document.getElementById('preset-security'),
+  presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
   
   // Package preview
@@ -425,6 +426,21 @@ function applyPreset(presetName) {
 }
 
 /**
+ * Select all metadata types
+ */
+function selectAllMetadata() {
+  selectedMetadataTypes.clear();
+  elements.metadataCheckboxes.forEach(checkbox => {
+    checkbox.checked = true;
+    selectedMetadataTypes.add(checkbox.value);
+  });
+  
+  updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+}
+
+/**
  * Clear all metadata selections
  */
 function clearAllSelections() {
@@ -660,6 +676,7 @@ function attachEventListeners() {
   elements.presetObjectModel.addEventListener('click', () => applyPreset('object-model'));
   elements.presetDeclarative.addEventListener('click', () => applyPreset('declarative'));
   elements.presetSecurity.addEventListener('click', () => applyPreset('security'));
+  elements.presetSelectAll.addEventListener('click', selectAllMetadata);
   elements.presetClear.addEventListener('click', clearAllSelections);
   
   // Package preview toggle
