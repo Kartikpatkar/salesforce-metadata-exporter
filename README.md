@@ -337,6 +337,6 @@ This project is licensed under the **MIT License** — free to use, modify, and 
 
 ---
 
-> **Salesforce Package XML Generator** — because deployments should be precise, fast, and stress-free 🚀
+> **Salesforce Metadata Exporter** — because deployments should be precise, fast, and stress-free 🚀
 
 ---
