@@ -96,36 +96,3 @@ footer {
   font-size: 0.8rem;
   color: #94a3b8;
 }
-
-/* Dark Theme */
-body.dark-theme .footer {
-  background: #1a1f2e;
-  color: #e0e0e0;
-}
-
-body.dark-theme .footer-text {
-  color: #aaa;
-}
-
-body.dark-theme .footer-info-row {
-  color: #ccc;
-}
-
-body.dark-theme .footer-divider {
-  background: #30363d;
-}
-
-body.dark-theme .footer-copyright {
-  color: #888;
-}
-
-body.dark-theme .footer a:hover {
-  color: #8b9aee;
-}
-
-body.dark-theme .footer-logo {
-  background: linear-gradient(135deg, #8b9aee 0%, #9b7bc2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}

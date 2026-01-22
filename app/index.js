@@ -33,6 +33,7 @@ const elements = {
   loginSandboxBtn: document.getElementById('login-sandbox-btn'),
   switchOrgBtn: document.getElementById('switch-org-btn'),
   profileBtn: document.getElementById('profile-btn'),
+  themeToggle: document.getElementById('theme-toggle'),
   
   // Modal elements
   orgModal: document.getElementById('org-modal'),
@@ -88,6 +89,9 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 async function initializeApp() {
   try {
+    // Load theme preference
+    loadThemePreference();
+    
     // Check Salesforce authentication via background worker
     await detectSalesforceOrg();
     
@@ -1208,6 +1212,11 @@ function attachEventListeners() {
     elements.modalOverlay.addEventListener('click', closeOrgModal);
   }
   
+  // Theme toggle
+  if (elements.themeToggle) {
+    elements.themeToggle.addEventListener('click', toggleTheme);
+  }
+  
   // Copy package.xml button
   const copyPackageBtn = document.getElementById('copy-package-btn');
   if (copyPackageBtn) {
@@ -1310,6 +1319,30 @@ async function simulateExportProcess() {
   
   showExportProgress('✅ Export complete!', 100);
   await new Promise(resolve => setTimeout(resolve, 1500));
+}
+
+// ========================================
+// THEME MANAGEMENT
+// ========================================
+
+/**
+ * Load theme preference from localStorage
+ */
+function loadThemePreference() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+  }
+}
+
+/**
+ * Toggle between light and dark theme
+ */
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-theme');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  
+  console.log('[App] Theme toggled:', isDark ? 'dark' : 'light');
 }
 
 // ========================================
