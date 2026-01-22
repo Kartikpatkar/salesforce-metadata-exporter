@@ -142,11 +142,11 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 ### 🔷 Light Mode
 
-> Beautiful, modern interface with vibrant gradients and clear typography
+![Light Mode - Editor Page](/screenshots/light-theme.png)
 
 ### 🌑 Dark Mode
 
-> Eye-friendly dark theme perfect for late-night deployments
+![Dark Mode - Editor Page](/screenshots/dark-theme.png)
 
 ---
 
@@ -312,14 +312,22 @@ Please keep changes modular and follow the existing code structure.
 
 ---
 
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are welcome!
+
+* Fork the repository
+* Create a feature branch
+* Submit a pull request
+
+Please keep changes modular and follow the existing code structure.
+
+---
+
 ## 🧠 Author
 
-**Built with ❤️ by Salesforce Developers, for Salesforce Developers**
-
-Connect:
-* 🌐 GitHub: [Your GitHub Profile]
-* 💼 LinkedIn: [Your LinkedIn]
-* 🏔️ Trailhead: [Your Trailhead Profile]
+Built by **Kartik Patkar**
+Salesforce Developer • Chrome Extension Builder
 
 ---
 
@@ -327,13 +335,8 @@ Connect:
 
 This project is licensed under the **MIT License** — free to use, modify, and distribute.
 
-See [LICENSE](LICENSE) file for details.
-
 ---
 
-> **Salesforce Metadata Exporter** — because deployments should be precise, fast, and stress-free 🚀
+> **Salesforce Package XML Generator** — because deployments should be precise, fast, and stress-free 🚀
 
 ---
-
-**Status**: ✅ Production Ready  
-**Last Updated**: January 2026
