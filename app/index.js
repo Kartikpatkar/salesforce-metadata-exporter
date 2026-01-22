@@ -28,17 +28,20 @@ const elements = {
   orgId: document.getElementById('org-id'),
   apiVersion: document.getElementById('api-version'),
   
-  // Auth controls (to be added to HTML)
+  // Auth controls
   loginBtn: document.getElementById('login-btn'),
   loginSandboxBtn: document.getElementById('login-sandbox-btn'),
   switchOrgBtn: document.getElementById('switch-org-btn'),
+  profileBtn: document.getElementById('profile-btn'),
+  
+  // Modal elements
+  orgModal: document.getElementById('org-modal'),
+  modalOverlay: document.getElementById('modal-overlay'),
+  modalClose: document.getElementById('modal-close'),
   
   // Metadata selection
   metadataCheckboxes: document.querySelectorAll('#metadata-types input[type="checkbox"]'),
-  presetApex: document.getElementById('preset-apex'),
-  presetObjectModel: document.getElementById('preset-object-model'),
-  presetDeclarative: document.getElementById('preset-declarative'),
-  presetSecurity: document.getElementById('preset-security'),
+  metadataSearch: document.getElementById('metadata-search'),
   presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
   
@@ -60,6 +63,12 @@ const elements = {
 
 let orgInfo = null;
 let selectedMetadataTypes = new Set();
+// Store selected members per metadata type
+// Structure: Map<metadataType, Set<memberName> | '*'>
+// '*' means all members (wildcard)
+let selectedMembers = new Map();
+// Cache for fetched members to avoid repeated API calls
+let membersCache = new Map();
 let exportInProgress = false;
 
 // ========================================
@@ -88,6 +97,66 @@ async function initializeApp() {
   } catch (error) {
     console.error('[App] Failed to initialize:', error);
     showError('Failed to initialize extension.');
+  }
+}
+
+// ========================================
+// MODAL FUNCTIONS
+// ========================================
+
+/**
+ * Open org details modal
+ */
+function openOrgModal() {
+  elements.orgModal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Close org details modal
+ */
+function closeOrgModal() {
+  elements.orgModal.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+/**
+ * Copy package.xml to clipboard
+ */
+async function copyPackageToClipboard() {
+  const packageCode = elements.packagePreview.querySelector('code');
+  const packageXML = packageCode.textContent;
+  
+  // Don't copy if it's the placeholder text
+  if (packageXML.includes('<!--') || packageXML.trim().length === 0) {
+    showError('No package.xml to copy. Please select metadata types first.');
+    return;
+  }
+  
+  try {
+    await navigator.clipboard.writeText(packageXML);
+    
+    // Clear any error messages
+    hideError();
+    
+    // Visual feedback
+    const copyBtn = document.getElementById('copy-package-btn');
+    const copyText = copyBtn.querySelector('.copy-text');
+    const originalText = copyText.textContent;
+    
+    copyBtn.classList.add('copied');
+    copyText.textContent = 'Copied!';
+    
+    // Reset after 2 seconds
+    setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyText.textContent = originalText;
+    }, 2000);
+    
+    console.log('[App] Package.xml copied to clipboard');
+  } catch (error) {
+    console.error('[App] Failed to copy to clipboard:', error);
+    showError('Failed to copy to clipboard');
   }
 }
 
@@ -228,6 +297,7 @@ async function displayOrgInfo(org) {
   
   orgInfo = {
     url: org.instanceUrl,
+    instanceUrl: org.instanceUrl, // Required by SalesforceMembers
     instance: extractInstanceFromUrl(org.instanceUrl),
     orgId: 'Connected', // Org ID not available from connector
     apiVersion: '59.0',
@@ -298,6 +368,7 @@ async function loadMetadataTypes() {
  */
 function renderMetadataTypes(metadataTypes) {
   console.log('[App] Rendering metadata types:', metadataTypes.length);
+  console.log('[App] First 10 metadata types:', metadataTypes.slice(0, 10).map(t => t.xmlName));
   
   const metadataSection = document.getElementById('metadata-types');
   metadataSection.innerHTML = ''; // Clear loading state
@@ -307,30 +378,199 @@ function renderMetadataTypes(metadataTypes) {
     return;
   }
   
-  // Create checkbox for each metadata type
+  // Create expandable item for each metadata type
   metadataTypes.forEach(type => {
-    const label = document.createElement('label');
+    const container = document.createElement('div');
+    container.className = 'metadata-type-container';
     
+    // Main checkbox label with expand arrow
+    const mainLabel = document.createElement('label');
+    mainLabel.className = 'metadata-type-label';
+    
+    // Expand/collapse arrow
+    const arrow = document.createElement('span');
+    arrow.className = 'expand-arrow';
+    arrow.textContent = '▶';
+    arrow.title = 'Click to view members';
+    
+    // Checkbox for the type
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.value = type.xmlName;
-    checkbox.addEventListener('change', handleMetadataSelection);
+    checkbox.className = 'metadata-type-checkbox';
+    checkbox.addEventListener('change', (e) => handleMetadataSelection(e, type));
     
-    label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(type.xmlName));
+    // Type name
+    const typeName = document.createElement('span');
+    typeName.className = 'metadata-type-name';
+    typeName.textContent = type.xmlName;
     
-    // Add tooltip with directory name if available
-    if (type.directoryName) {
-      label.title = `Directory: ${type.directoryName}`;
-    }
+    // Member count badge (will be populated when expanded)
+    const badge = document.createElement('span');
+    badge.className = 'member-count-badge hidden';
+    badge.textContent = '0';
     
-    metadataSection.appendChild(label);
+    mainLabel.appendChild(arrow);
+    mainLabel.appendChild(checkbox);
+    mainLabel.appendChild(typeName);
+    mainLabel.appendChild(badge);
+    
+    // Members container (initially hidden)
+    const membersContainer = document.createElement('div');
+    membersContainer.className = 'members-container hidden';
+    membersContainer.id = `members-${type.xmlName}`;
+    
+    // Arrow click to expand/collapse
+    arrow.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      await toggleMembersView(type.xmlName, arrow, membersContainer, badge);
+    });
+    
+    container.appendChild(mainLabel);
+    container.appendChild(membersContainer);
+    metadataSection.appendChild(container);
   });
   
-  // Update checkbox references for preset buttons
-  elements.metadataCheckboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
+  // Update checkbox references
+  elements.metadataCheckboxes = document.querySelectorAll('.metadata-type-checkbox');
   
   console.log('[App] Rendered metadata type checkboxes:', elements.metadataCheckboxes.length);
+  console.log('[App] Sample checkbox values:', Array.from(elements.metadataCheckboxes).slice(0, 10).map(cb => cb.value));
+}
+
+/**
+ * Toggle members view for a metadata type
+ */
+async function toggleMembersView(metadataType, arrow, membersContainer, badge) {
+  const isExpanded = !membersContainer.classList.contains('hidden');
+  
+  if (isExpanded) {
+    // Collapse
+    membersContainer.classList.add('hidden');
+    arrow.textContent = '▶';
+  } else {
+    // Expand
+    arrow.textContent = '▼';
+    membersContainer.classList.remove('hidden');
+    
+    // Load members if not already loaded
+    if (!membersCache.has(metadataType)) {
+      await loadMembers(metadataType, membersContainer, badge);
+    }
+  }
+}
+
+/**
+ * Load members for a metadata type
+ */
+async function loadMembers(metadataType, membersContainer, badge) {
+  membersContainer.innerHTML = '<p class="loading-members">Loading members...</p>';
+  
+  try {
+    // Request members from background worker
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_METADATA_MEMBERS',
+      payload: { orgInfo, metadataType }
+    });
+    
+    if (response.success && response.members) {
+      const members = response.members;
+      membersCache.set(metadataType, members);
+      
+      // Update badge
+      badge.textContent = members.length;
+      badge.classList.remove('hidden');
+      
+      renderMembers(metadataType, members, membersContainer);
+    } else {
+      throw new Error(response.error || 'Failed to load members');
+    }
+  } catch (error) {
+    console.error('[App] Failed to load members for', metadataType, error);
+    membersContainer.innerHTML = `<p class="error-members">Failed to load members: ${error.message}</p>`;
+  }
+}
+
+/**
+ * Filter members list based on search input
+ */
+function filterMembers(metadataType, searchTerm) {
+  const membersList = document.getElementById(`members-list-${metadataType}`);
+  if (!membersList) return;
+  
+  const term = searchTerm.toLowerCase().trim();
+  const labels = membersList.querySelectorAll('.member-label');
+  
+  labels.forEach(label => {
+    const memberName = label.textContent.toLowerCase();
+    if (memberName.includes(term)) {
+      label.style.display = 'flex';
+    } else {
+      label.style.display = 'none';
+    }
+  });
+}
+
+/**
+ * Render member checkboxes for a metadata type
+ */
+function renderMembers(metadataType, members, membersContainer) {
+  membersContainer.innerHTML = '';
+  
+  if (members.length === 0) {
+    membersContainer.innerHTML = '<p class="no-members">No members found</p>';
+    return;
+  }
+  
+  // Add member controls
+  const controls = document.createElement('div');
+  controls.className = 'member-controls';
+  
+  const selectAllBtn = document.createElement('button');
+  selectAllBtn.className = 'member-btn';
+  selectAllBtn.textContent = 'All';
+  selectAllBtn.addEventListener('click', () => selectAllMembers(metadataType));
+  
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'member-btn secondary';
+  clearBtn.textContent = 'None';
+  clearBtn.addEventListener('click', () => clearMembers(metadataType));
+  
+  // Member search input
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.className = 'member-search';
+  searchInput.placeholder = 'Filter members...';
+  searchInput.addEventListener('input', (e) => filterMembers(metadataType, e.target.value));
+  
+  controls.appendChild(selectAllBtn);
+  controls.appendChild(clearBtn);
+  controls.appendChild(searchInput);
+  
+  // Member list
+  const membersList = document.createElement('div');
+  membersList.className = 'members-list';
+  membersList.id = `members-list-${metadataType}`;
+  
+  members.forEach(member => {
+    const label = document.createElement('label');
+    label.className = 'member-label';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = member.fullName;
+    checkbox.className = 'member-checkbox';
+    checkbox.dataset.metadataType = metadataType;
+    checkbox.addEventListener('change', (e) => handleMemberSelection(e, metadataType));
+    
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(member.fullName));
+    membersList.appendChild(label);
+  });
+  
+  membersContainer.appendChild(controls);
+  membersContainer.appendChild(membersList);
 }
 
 // ========================================
@@ -379,17 +619,160 @@ async function saveSelections() {
 /**
  * Handle metadata checkbox changes
  */
-function handleMetadataSelection(event) {
+/**
+ * Handle metadata type selection
+ * @param {Event} event - Change event
+ * @param {Object} type - Metadata type object
+ */
+function handleMetadataSelection(event, type) {
   const checkbox = event.target;
   const metadataType = checkbox.value;
   
   if (checkbox.checked) {
     selectedMetadataTypes.add(metadataType);
+    // Default to wildcard when first selected
+    selectedMembers.set(metadataType, '*');
   } else {
     selectedMetadataTypes.delete(metadataType);
+    selectedMembers.delete(metadataType);
   }
   
   updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+}
+
+/**
+ * Update the member count badge for a metadata type
+ */
+function updateMemberCountBadge(metadataType) {
+  const container = document.querySelector(`#members-${metadataType}`);
+  if (!container) return;
+  
+  const badge = container.closest('.metadata-type-container')?.querySelector('.member-count-badge');
+  if (!badge) return;
+  
+  const members = selectedMembers.get(metadataType);
+  
+  if (members === '*') {
+    badge.textContent = '*';
+    badge.classList.remove('hidden');
+  } else if (members instanceof Set && members.size > 0) {
+    badge.textContent = members.size;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+/**
+ * Handle member selection within a metadata type
+ */
+function handleMemberSelection(event, metadataType) {
+  const checkbox = event.target;
+  const memberName = checkbox.value;
+  
+  // Auto-select metadata type if not already selected
+  if (!selectedMetadataTypes.has(metadataType)) {
+    selectedMetadataTypes.add(metadataType);
+    // Find and check the metadata type checkbox
+    const metadataCheckbox = document.querySelector(`input.metadata-type-checkbox[value="${metadataType}"]`);
+    if (metadataCheckbox) {
+      metadataCheckbox.checked = true;
+    }
+  }
+  
+  let members = selectedMembers.get(metadataType);
+  
+  // Convert from wildcard to Set if needed
+  if (members === '*' || !members) {
+    members = new Set();
+    selectedMembers.set(metadataType, members);
+  }
+  
+  // Ensure members is a Set
+  if (!(members instanceof Set)) {
+    members = new Set(members);
+    selectedMembers.set(metadataType, members);
+  }
+  
+  if (checkbox.checked) {
+    members.add(memberName);
+  } else {
+    members.delete(memberName);
+  }
+  
+  // If no members selected, deselect metadata type and remove from map
+  if (members.size === 0) {
+    selectedMetadataTypes.delete(metadataType);
+    selectedMembers.delete(metadataType);
+    // Uncheck the metadata type checkbox
+    const metadataCheckbox = document.querySelector(`input.metadata-type-checkbox[value="${metadataType}"]`);
+    if (metadataCheckbox) {
+      metadataCheckbox.checked = false;
+    }
+  }
+  
+  console.log(`[App] Member selection for ${metadataType}:`, members instanceof Set ? Array.from(members) : members);
+  
+  updateMemberCountBadge(metadataType);
+  updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+}
+
+/**
+ * Select all members for a metadata type
+ */
+function selectAllMembers(metadataType) {
+  const membersList = document.getElementById(`members-list-${metadataType}`);
+  const checkboxes = membersList.querySelectorAll('.member-checkbox');
+  
+  const members = new Set();
+  checkboxes.forEach(cb => {
+    // Only select visible members (not filtered out)
+    const label = cb.closest('.member-label');
+    if (label && label.style.display !== 'none') {
+      cb.checked = true;
+      members.add(cb.value);
+    }
+  });
+  
+  selectedMembers.set(metadataType, members);
+  updateMemberCountBadge(metadataType);
+  updatePackagePreview();
+  saveSelections();
+}
+
+/**
+ * Clear all members for a metadata type
+ */
+function clearMembers(metadataType) {
+  const membersList = document.getElementById(`members-list-${metadataType}`);
+  const checkboxes = membersList.querySelectorAll('.member-checkbox');
+  
+  checkboxes.forEach(cb => {
+    cb.checked = false;
+  });
+  
+  selectedMembers.set(metadataType, '*');
+  updateMemberCountBadge(metadataType);
+  updatePackagePreview();
+  saveSelections();
+}
+
+/**
+ * Use wildcard for a metadata type
+ */
+function useWildcard(metadataType) {
+  const membersList = document.getElementById(`members-list-${metadataType}`);
+  const checkboxes = membersList.querySelectorAll('.member-checkbox');
+  
+  checkboxes.forEach(cb => {
+    cb.checked = false;
+  });
+  
+  selectedMembers.set(metadataType, '*');
   updatePackagePreview();
   saveSelections();
 }
@@ -426,14 +809,48 @@ function applyPreset(presetName) {
 }
 
 /**
+ * Filter metadata types based on search input
+ */
+function filterMetadataTypes() {
+  const searchTerm = elements.metadataSearch.value.toLowerCase().trim();
+  const metadataContainer = document.getElementById('metadata-types');
+  const containers = metadataContainer.querySelectorAll('.metadata-type-container');
+  
+  containers.forEach(container => {
+    const typeNameElement = container.querySelector('.metadata-type-name');
+    if (typeNameElement) {
+      const metadataTypeName = typeNameElement.textContent.toLowerCase();
+      if (metadataTypeName.includes(searchTerm)) {
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+    }
+  });
+}
+
+/**
  * Select all metadata types
  */
 function selectAllMetadata() {
   selectedMetadataTypes.clear();
-  elements.metadataCheckboxes.forEach(checkbox => {
-    checkbox.checked = true;
-    selectedMetadataTypes.add(checkbox.value);
+  
+  // Query checkboxes directly to ensure we get all current checkboxes
+  const checkboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
+  
+  console.log('[App] Select All: Found', checkboxes.length, 'checkboxes');
+  
+  checkboxes.forEach(checkbox => {
+    // Only select visible checkboxes (based on search filter)
+    const label = checkbox.closest('label');
+    if (label && label.style.display !== 'none') {
+      checkbox.checked = true;
+      selectedMetadataTypes.add(checkbox.value);
+    }
   });
+  
+  console.log('[App] Selected all metadata types:', selectedMetadataTypes.size);
+  console.log('[App] Selected types:', Array.from(selectedMetadataTypes).slice(0, 10));
   
   updateExportButtonState();
   updatePackagePreview();
@@ -445,9 +862,15 @@ function selectAllMetadata() {
  */
 function clearAllSelections() {
   selectedMetadataTypes.clear();
-  elements.metadataCheckboxes.forEach(checkbox => {
+  
+  // Query checkboxes directly
+  const checkboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
+  
+  checkboxes.forEach(checkbox => {
     checkbox.checked = false;
   });
+  
+  console.log('[App] Cleared all selections');
   
   updateExportButtonState();
   updatePackagePreview();
@@ -462,6 +885,8 @@ function clearAllSelections() {
  * Update package.xml preview based on selected metadata types
  */
 function updatePackagePreview() {
+  console.log('[App] Updating package preview. Selected types:', selectedMetadataTypes.size);
+  
   if (selectedMetadataTypes.size === 0 || !orgInfo) {
     elements.packagePreview.querySelector('code').textContent = 
       '<!-- Select metadata types to preview package.xml -->';
@@ -470,9 +895,27 @@ function updatePackagePreview() {
   
   try {
     const generator = new PackageXMLGenerator(orgInfo.apiVersion);
-    const packageXML = generator.generate(Array.from(selectedMetadataTypes));
+    
+    // Build types with members
+    const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
+      const members = selectedMembers.get(type);
+      const memberArray = members === '*' ? ['*'] : (members instanceof Set ? Array.from(members) : ['*']);
+      
+      console.log(`[App] Type: ${type}, Members:`, memberArray);
+      
+      return {
+        name: type,
+        members: memberArray
+      };
+    });
+    
+    console.log('[App] Generating package.xml for types:', typesWithMembers.length);
+    console.log('[App] Full typesWithMembers:', JSON.stringify(typesWithMembers, null, 2));
+    
+    const packageXML = generator.generateWithMembers(typesWithMembers);
     
     elements.packagePreview.querySelector('code').textContent = packageXML;
+    console.log('[App] Package.xml generated successfully. Length:', packageXML.length);
   } catch (error) {
     console.error('[App] Failed to generate package.xml:', error);
     elements.packagePreview.querySelector('code').textContent = 
@@ -525,11 +968,24 @@ async function startExport() {
       orgInfo
     });
     
+    // Build types with members (same as preview)
+    const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
+      const members = selectedMembers.get(type);
+      const memberArray = members === '*' ? ['*'] : (members instanceof Set ? Array.from(members) : ['*']);
+      
+      return {
+        name: type,
+        members: memberArray
+      };
+    });
+    
+    console.log('[App] Exporting types with members:', JSON.stringify(typesWithMembers, null, 2));
+    
     const response = await chrome.runtime.sendMessage({
       type: 'START_EXPORT',
       payload: {
         orgInfo,
-        metadataTypes: Array.from(selectedMetadataTypes)
+        typesWithMembers
       }
     });
     
@@ -666,21 +1122,45 @@ function attachEventListeners() {
     elements.switchOrgBtn.addEventListener('click', switchOrg);
   }
   
+  // Profile button and modal
+  if (elements.profileBtn) {
+    elements.profileBtn.addEventListener('click', openOrgModal);
+  }
+  if (elements.modalClose) {
+    elements.modalClose.addEventListener('click', closeOrgModal);
+  }
+  if (elements.modalOverlay) {
+    elements.modalOverlay.addEventListener('click', closeOrgModal);
+  }
+  
+  // Copy package.xml button
+  const copyPackageBtn = document.getElementById('copy-package-btn');
+  if (copyPackageBtn) {
+    copyPackageBtn.addEventListener('click', copyPackageToClipboard);
+  }
+  
   // Metadata selection
   elements.metadataCheckboxes.forEach(checkbox => {
     checkbox.addEventListener('change', handleMetadataSelection);
   });
   
+  // Search bar
+  if (elements.metadataSearch) {
+    elements.metadataSearch.addEventListener('input', filterMetadataTypes);
+  }
+  
   // Preset buttons
-  elements.presetApex.addEventListener('click', () => applyPreset('apex'));
-  elements.presetObjectModel.addEventListener('click', () => applyPreset('object-model'));
-  elements.presetDeclarative.addEventListener('click', () => applyPreset('declarative'));
-  elements.presetSecurity.addEventListener('click', () => applyPreset('security'));
-  elements.presetSelectAll.addEventListener('click', selectAllMetadata);
-  elements.presetClear.addEventListener('click', clearAllSelections);
+  if (elements.presetSelectAll) {
+    elements.presetSelectAll.addEventListener('click', selectAllMetadata);
+  }
+  if (elements.presetClear) {
+    elements.presetClear.addEventListener('click', clearAllSelections);
+  }
   
   // Package preview toggle
-  elements.togglePreview.addEventListener('click', togglePreview);
+  if (elements.togglePreview) {
+    elements.togglePreview.addEventListener('click', togglePreview);
+  }
   
   // Export button
   elements.exportBtn.addEventListener('click', startExport);

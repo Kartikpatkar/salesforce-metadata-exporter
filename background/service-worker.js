@@ -23,6 +23,7 @@
 
 import SalesforceConnector from '../utils/salesforce-connector.js';
 import { SalesforceMetadataAPI } from '../lib/salesforce-api.js';
+import { SalesforceMembers } from '../lib/salesforce-members.js';
 import { PackageXMLGenerator } from '../lib/package-xml-generator.js';
 import { ZipHandler } from '../lib/zip-handler.js';
 
@@ -125,6 +126,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleGetMetadataTypes(message.payload, sendResponse);
       return true;
     
+    case 'GET_METADATA_MEMBERS':
+      handleGetMetadataMembers(message.payload, sendResponse);
+      return true;
+    
     case 'START_EXPORT':
       handleStartExport(message.payload, sendResponse);
       return true; // Keep channel open for async response
@@ -221,6 +226,36 @@ async function handleGetMetadataTypes(payload, sendResponse) {
   }
 }
 
+/**
+ * Handle GET_METADATA_MEMBERS message - get members for a specific metadata type
+ */
+async function handleGetMetadataMembers(payload, sendResponse) {
+  try {
+    console.log('[Service Worker] Fetching members for:', payload.metadataType);
+    
+    const { orgInfo, metadataType } = payload;
+    if (!orgInfo || !orgInfo.sessionId) {
+      throw new Error('Not authenticated');
+    }
+    
+    // Create SalesforceMembers instance
+    const membersFetcher = new SalesforceMembers({
+      apiVersion: orgInfo.apiVersion || '59.0',
+      orgInfo: orgInfo
+    });
+    
+    // Fetch members for this metadata type
+    const members = await membersFetcher.getMembers(metadataType);
+    
+    console.log('[Service Worker] Retrieved members:', members.length);
+    sendResponse({ success: true, members });
+    
+  } catch (error) {
+    console.error('[Service Worker] Get metadata members failed:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
 // ========================================
 // EXPORT WORKFLOW ORCHESTRATION
 // ========================================
@@ -242,19 +277,19 @@ async function handleStartExport(payload, sendResponse) {
   try {
     console.log('[Service Worker] Starting export workflow...', payload);
     
-    const { orgInfo, metadataTypes } = payload;
+    const { orgInfo, typesWithMembers } = payload;
     
     // Validate payload
     if (!orgInfo || !orgInfo.sessionId) {
       throw new Error('No Salesforce session found. Please refresh the page.');
     }
     
-    if (!metadataTypes || metadataTypes.length === 0) {
+    if (!typesWithMembers || typesWithMembers.length === 0) {
       throw new Error('No metadata types selected');
     }
     
     // Step 1 - Generate package.xml
-    const packageXML = generatePackageXML(metadataTypes, orgInfo.apiVersion);
+    const packageXML = generatePackageXML(typesWithMembers, orgInfo.apiVersion);
     
     // Step 2 - Call Metadata API retrieve()
     const retrieveId = await initiateMetadataRetrieve(orgInfo, packageXML);
@@ -289,15 +324,15 @@ async function handleStartExport(payload, sendResponse) {
 
 /**
  * Generate package.xml from metadata types
- * @param {string[]} metadataTypes - Array of metadata type names
+ * @param {Array} typesWithMembers - Array of {name, members} objects
  * @param {string} apiVersion - Salesforce API version
  * @returns {string} package.xml content
  */
-function generatePackageXML(metadataTypes, apiVersion) {
-  console.log('[Service Worker] Generating package.xml...', metadataTypes);
+function generatePackageXML(typesWithMembers, apiVersion) {
+  console.log('[Service Worker] Generating package.xml...', typesWithMembers);
   
   const generator = new PackageXMLGenerator(apiVersion);
-  const packageXML = generator.generate(metadataTypes);
+  const packageXML = generator.generateWithMembers(typesWithMembers);
   
   console.log('[Service Worker] Generated package.xml:', packageXML);
   

@@ -12,88 +12,85 @@
     <!-- HEADER: Extension Title -->
     <header>
         <div class="container">
-            <h1>⚡ Salesforce Metadata Exporter</h1>
-            <p class="subtitle">Export metadata from your Salesforce org as a downloadable ZIP file</p>
+            <div class="header-content">
+                <div class="header-text">
+                    <h1>⚡ Salesforce Metadata Exporter</h1>
+                    <p class="subtitle">Export metadata from your Salesforce org as a downloadable ZIP file</p>
+                </div>
+                <div class="auth-section">
+                    <button id="login-btn" class="auth-btn">Login to Production</button>
+                    <button id="login-sandbox-btn" class="auth-btn secondary">Login to Sandbox</button>
+                    <button id="switch-org-btn" class="auth-btn secondary" style="display: none;">Switch Org</button>
+                    <button id="profile-btn" class="profile-btn" title="View Org Details">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
     <!-- MAIN CONTENT -->
     <main class="container">
-        <!-- SECTION 1: Org Detection Display -->
-        <section id="org-info-section" class="card">
-            <h2>🌐 Detected Org</h2>
-            <div id="org-info" class="info-box">
-                <p id="org-status">Detecting Salesforce org...</p>
-                <div id="org-details" class="hidden">
-                    <div class="org-detail-grid">
-                        <div class="org-detail-item">
-                            <strong>Org URL:</strong>
-                            <span id="org-url">-</span>
-                        </div>
-                        <div class="org-detail-item">
-                            <strong>Instance:</strong>
-                            <span id="org-instance">-</span>
-                        </div>
-                        <div class="org-detail-item">
-                            <strong>Org ID:</strong>
-                            <span id="org-id">-</span>
-                        </div>
-                        <div class="org-detail-item">
-                            <strong>API Version:</strong>
-                            <span id="api-version">-</span>
-                        </div>
+        <!-- SECTION 2 & 3: Two Column Layout -->
+        <div class="two-column-layout">
+            <!-- LEFT: Metadata Selection (1/3 width) -->
+            <section id="metadata-selection-section" class="card column-left">
+                <h2>📦 Select Metadata Types</h2>
+
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" id="metadata-search" class="metadata-search" placeholder="Search metadata types...">
+                </div>
+
+                <!-- Quick Actions -->
+                <div id="preset-buttons">
+                    <button id="preset-select-all" class="preset-btn">Select All</button>
+                    <button id="preset-clear" class="preset-btn secondary">Clear</button>
+                </div>
+
+                <!-- Metadata Type Checkboxes (dynamically populated from org) -->
+                <div id="metadata-types" class="checkbox-grid">
+                    <p style="text-align: center; padding: 20px; color: #666;">
+                        Connect to Salesforce to load available metadata types
+                    </p>
+                </div>
+            </section>
+
+            <!-- RIGHT: package.xml Preview (2/3 width) -->
+            <section id="package-preview-section" class="card column-right">
+                <div class="preview-header">
+                    <h2>📄 package.xml Preview</h2>
+                    <button id="copy-package-btn" class="copy-btn" title="Copy to clipboard">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span class="copy-text">Copy</span>
+                    </button>
+                </div>
+                <pre id="package-preview"><code><!-- Generated package.xml will appear here --></code></pre>
+                
+                <!-- Export Controls -->
+                <div id="export-section">
+                    <button id="export-btn" class="primary-btn" disabled>
+                        🚀 Export Metadata
+                    </button>
+                    <div id="export-status" class="hidden">
+                        <p id="status-message">Preparing export...</p>
+                        <progress id="export-progress" max="100" value="0"></progress>
                     </div>
+                    <p id="error-message" class="error hidden"></p>
                 </div>
+            </section>
+        </div>
 
-                <!-- Auth Control Buttons -->
-                <div id="auth-controls" style="margin-top: 15px;">
-                    <button id="login-btn" class="auth-btn">Login to Production</button>
-                    <button id="login-sandbox-btn" class="auth-btn secondary">Login to Sandbox</button>
-                    <button id="switch-org-btn" class="auth-btn secondary" style="display: none;">Switch Org</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- SECTION 2: Metadata Selection -->
-        <section id="metadata-selection-section" class="card">
-            <h2>📦 Select Metadata Types</h2>
-
-            <!-- Preset Buttons -->
-            <div id="preset-buttons">
-                <button id="preset-apex" class="preset-btn">Apex Only</button>
-                <button id="preset-object-model" class="preset-btn">Object Model</button>
-                <button id="preset-declarative" class="preset-btn">Declarative Config</button>
-                <button id="preset-security" class="preset-btn">Security Basics</button>
-                <button id="preset-select-all" class="preset-btn">Select All</button>
-                <button id="preset-clear" class="preset-btn secondary">Clear All</button>
-            </div>
-
-            <!-- Metadata Type Checkboxes (dynamically populated from org) -->
-            <div id="metadata-types" class="checkbox-grid">
-                <p style="text-align: center; padding: 20px; color: #666;">
-                    Connect to Salesforce to load available metadata types
-                </p>
-            </div>
-        </section>
-
-        <!-- SECTION 3: package.xml Preview (Collapsible) -->
-        <section id="package-preview-section" class="card">
-            <h2>📄 package.xml Preview</h2>
-            <button id="toggle-preview" class="secondary-btn">Show Preview</button>
-            <pre id="package-preview" class="hidden"><code><!-- Generated package.xml will appear here --></code></pre>
-        </section>
-
-        <!-- SECTION 4: Export Controls -->
-        <section id="export-section" class="card">
-            <button id="export-btn" class="primary-btn" disabled>
-                🚀 Export Metadata
-            </button>
-            <div id="export-status" class="hidden">
-                <p id="status-message">Preparing export...</p>
-                <progress id="export-progress" max="100" value="0"></progress>
-            </div>
-            <p id="error-message" class="error hidden"></p>
-        </section>
     </main>
 
     <!-- FOOTER: Info/Help -->
@@ -105,6 +102,47 @@
             </p>
         </div>
     </footer>
+
+    <!-- ORG DETAILS MODAL -->
+    <div id="org-modal" class="modal hidden">
+        <div class="modal-overlay" id="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🌐 Detected Org</h2>
+                <button class="modal-close" id="modal-close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="org-info" class="info-box">
+                    <p id="org-status">Detecting Salesforce org...</p>
+                    <div id="org-details" class="hidden">
+                        <div class="org-detail-grid">
+                            <div class="org-detail-item">
+                                <strong>Org URL:</strong>
+                                <span id="org-url">-</span>
+                            </div>
+                            <div class="org-detail-item">
+                                <strong>Instance:</strong>
+                                <span id="org-instance">-</span>
+                            </div>
+                            <div class="org-detail-item">
+                                <strong>Org ID:</strong>
+                                <span id="org-id">-</span>
+                            </div>
+                            <div class="org-detail-item">
+                                <strong>API Version:</strong>
+                                <span id="api-version">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="index.js"></script>
 </body>
