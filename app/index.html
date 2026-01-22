@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salesforce Metadata Exporter</title>
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
@@ -47,6 +48,12 @@
                         <path d="m21 21-4.35-4.35"></path>
                     </svg>
                     <input type="text" id="metadata-search" class="metadata-search" placeholder="Search metadata types...">
+                    <button class="clear-search-btn hidden" id="clear-metadata-search" title="Clear search">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Quick Actions -->
@@ -93,13 +100,38 @@
 
     </main>
 
-    <!-- FOOTER: Info/Help -->
-    <footer>
-        <div class="container">
-            <p class="help-text">
-                ℹ️ This exports <strong>metadata only</strong> (no data records).
-                Uses your active Salesforce session.
-            </p>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo" id="footerTitle">Salesforce Package Generator</div>
+            <p class="footer-text" id="tagline">Generate deployment packages for Salesforce with ease</p>
+
+            <div class="footer-info-row">
+                <div class="footer-author">
+                    <i class="fas fa-code"></i> Created with ❤️ by <span id="authorDisplay">Kartik Patkar</span>
+                </div>
+            </div>
+
+            <div class="footer-links">
+                <a href="https://github.com/Kartikpatkar" class="footer-link github" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+                <a href="https://www.linkedin.com/in/kartik-patkar" class="footer-link linkedin" target="_blank">
+                    <i class="fab fa-linkedin"></i> LinkedIn
+                </a>
+                <a href="https://www.salesforce.com/trailblazer/kpatkar1" class="footer-link trailhead" target="_blank">
+                    <i class="fab fa-salesforce"></i> Trailhead
+                </a>
+                <a href="mailto:kartikkp.assets@gmail.com" class="footer-link email">
+                    <i class="fas fa-envelope"></i> Email
+                </a>
+            </div>
+
+            <div class="footer-divider"></div>
+
+            <div class="footer-copyright">
+                &copy; <span id="currentYear"></span> <span id="copyright">Salesforce Package Generator</span>
+            </div>
         </div>
     </footer>
 

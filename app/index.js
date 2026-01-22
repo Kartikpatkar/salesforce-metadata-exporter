@@ -537,16 +537,38 @@ function renderMembers(metadataType, members, membersContainer) {
   clearBtn.textContent = 'None';
   clearBtn.addEventListener('click', () => clearMembers(metadataType));
   
-  // Member search input
+  // Member search container with clear button
+  const searchContainer = document.createElement('div');
+  searchContainer.className = 'member-search-container';
+  searchContainer.style.position = 'relative';
+  searchContainer.style.flex = '1';
+  
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.className = 'member-search';
+  searchInput.id = `member-search-${metadataType}`;
   searchInput.placeholder = 'Filter members...';
-  searchInput.addEventListener('input', (e) => filterMembers(metadataType, e.target.value));
+  searchInput.addEventListener('input', (e) => {
+    filterMembers(metadataType, e.target.value);
+    toggleMemberClearButton(metadataType);
+  });
+  
+  const clearSearchBtn = document.createElement('button');
+  clearSearchBtn.className = 'clear-search-btn hidden';
+  clearSearchBtn.id = `clear-member-search-${metadataType}`;
+  clearSearchBtn.title = 'Clear search';
+  clearSearchBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>`;
+  clearSearchBtn.addEventListener('click', () => clearMemberSearch(metadataType));
+  
+  searchContainer.appendChild(searchInput);
+  searchContainer.appendChild(clearSearchBtn);
   
   controls.appendChild(selectAllBtn);
   controls.appendChild(clearBtn);
-  controls.appendChild(searchInput);
+  controls.appendChild(searchContainer);
   
   // Member list
   const membersList = document.createElement('div');
@@ -828,6 +850,59 @@ function filterMetadataTypes() {
     }
   });
 }
+
+/**
+ * Toggle visibility of clear search button based on input value
+ */
+function toggleClearButton() {
+  const clearBtn = document.getElementById('clear-metadata-search');
+  if (clearBtn) {
+    if (elements.metadataSearch.value.length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Clear metadata search input and show all metadata types
+ */
+function clearMetadataSearch() {
+  elements.metadataSearch.value = '';
+  elements.metadataSearch.focus();
+  filterMetadataTypes();
+  toggleClearButton();
+}
+
+/**
+ * Toggle visibility of member search clear button
+ */
+function toggleMemberClearButton(metadataType) {
+  const searchInput = document.getElementById(`member-search-${metadataType}`);
+  const clearBtn = document.getElementById(`clear-member-search-${metadataType}`);
+  if (clearBtn && searchInput) {
+    if (searchInput.value.length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Clear member search input and show all members
+ */
+function clearMemberSearch(metadataType) {
+  const searchInput = document.getElementById(`member-search-${metadataType}`);
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.focus();
+    filterMembers(metadataType, '');
+    toggleMemberClearButton(metadataType);
+  }
+}
+
 
 /**
  * Select all metadata types
@@ -1147,6 +1222,13 @@ function attachEventListeners() {
   // Search bar
   if (elements.metadataSearch) {
     elements.metadataSearch.addEventListener('input', filterMetadataTypes);
+    elements.metadataSearch.addEventListener('input', toggleClearButton);
+  }
+  
+  // Clear search button
+  const clearMetadataSearchBtn = document.getElementById('clear-metadata-search');
+  if (clearMetadataSearchBtn) {
+    clearMetadataSearchBtn.addEventListener('click', clearMetadataSearch);
   }
   
   // Preset buttons
@@ -1229,3 +1311,20 @@ async function simulateExportProcess() {
   showExportProgress('✅ Export complete!', 100);
   await new Promise(resolve => setTimeout(resolve, 1500));
 }
+
+// ========================================
+// FOOTER INITIALIZATION
+// ========================================
+
+/**
+ * Set current year in footer copyright
+ */
+function initializeFooter() {
+  const currentYearElement = document.getElementById('currentYear');
+  if (currentYearElement) {
+    currentYearElement.textContent = new Date().getFullYear();
+  }
+}
+
+// Initialize footer when DOM is loaded
+initializeFooter();

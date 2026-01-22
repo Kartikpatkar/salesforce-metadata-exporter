@@ -513,13 +513,30 @@ async function downloadZipFile(zipFileBase64, state) {
 
 /**
  * Generate filename for downloaded ZIP
+ * Format: INSTANCEORG-YYYY-mm-dd_HHMMss.zip
+ * Example: na135-2026-01-22_143052.zip
  * @param {Object} orgInfo - Org information
  * @returns {string} Filename
  */
 function generateFilename(orgInfo) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const orgName = orgInfo.instance || 'salesforce';
-  return `${orgName}_metadata_${timestamp}.zip`;
+  const now = new Date();
+  
+  // Format date as YYYY-mm-dd
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const date = `${year}-${month}-${day}`;
+  
+  // Format time as HHMMss
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const timestamp = `${hours}${minutes}${seconds}`;
+  
+  // Get instance name (e.g., na135, cs42) or organization ID
+  const instance = orgInfo.instance || orgInfo.organizationId || 'salesforce';
+  
+  return `${instance}-${date}_${timestamp}.zip`;
 }
 
 // ========================================
