@@ -1,0 +1,89 @@
+/* 
+ * Export Section
+ */
+
+#export-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid #2d3748;
+}
+
+.primary-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, #7c8eef 0%, #8456b8 100%);
+}
+
+.primary-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primary-btn:disabled {
+  background: linear-gradient(135deg, #cbd5e0 0%, #a0aec0 100%);
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* Export Status */
+#export-status {
+  margin-top: 20px;
+  text-align: center;
+}
+
+#status-message {
+  font-size: 15px;
+  color: #667eea;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+progress {
+  width: 100%;
+  height: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+progress::-webkit-progress-bar {
+  background: #e2e8f0;
+  border-radius: 8px;
+}
+
+progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+}
+
+progress::-moz-progress-bar {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+}
+
+/* Error Message */
+.error {
+  color: #c53030;
+  background: #fff5f5;
+  border: 2px solid #fc8181;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-top: 16px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(245, 101, 101, 0.15);
+}

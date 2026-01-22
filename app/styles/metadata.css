@@ -1,0 +1,134 @@
+/* 
+ * Metadata Types & Members
+ */
+
+/* Checkbox Grid */
+.checkbox-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  height: 55vh;
+}
+
+/* Metadata Type Container with Members */
+.metadata-type-container {
+  margin-bottom: 0.5rem;
+}
+
+.metadata-type-label {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f7fafc;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 2px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.metadata-type-label:hover {
+  background: #edf2f7;
+  border-color: #667eea;
+}
+
+.expand-arrow {
+  width: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.75rem;
+  color: #718096;
+  transition: transform 0.2s;
+}
+
+.metadata-type-checkbox {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  margin-right: 0.75rem;
+  margin-left: 0.5rem;
+  accent-color: #667eea;
+  flex-shrink: 0;
+}
+
+.metadata-type-name {
+  flex: 1;
+}
+
+.member-count-badge {
+  background: #667eea;
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+/* Members Container */
+.members-container {
+  margin-left: 2.5rem;
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid #e2e8f0;
+}
+
+.member-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.members-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.member-label {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.8125rem;
+  color: #4a5568;
+}
+
+.member-label:hover {
+  background: #f7fafc;
+}
+
+.member-checkbox {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin-right: 0.5rem;
+  accent-color: #48bb78;
+  flex-shrink: 0;
+}
+
+.loading-members,
+.error-members,
+.no-members {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #718096;
+}
+
+.error-members {
+  color: #c53030;
+  background: #fff5f5;
+  border-radius: 6px;
+}

@@ -1,0 +1,33 @@
+/* 
+ * Package Preview
+ */
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.preview-header h2 {
+  margin: 0;
+}
+
+#package-preview {
+  background: #1a202c;
+  color: #e2e8f0;
+  padding: 1.5rem;
+  border-radius: 12px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  line-height: 1.6;
+  height: 55vh;
+  overflow-y: auto;
+  min-height: 450px;
+  border: 2px solid #2d3748;
+}
+
+#package-preview code {
+  color: #e2e8f0;
+}

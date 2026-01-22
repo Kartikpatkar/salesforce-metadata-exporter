@@ -1,0 +1,98 @@
+/* 
+ * Layout & Cards
+ */
+
+/* Main Content */
+main {
+  padding: 0;
+}
+
+/* Card Sections */
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  margin-bottom: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+}
+
+.card h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Two Column Layout */
+.two-column-layout {
+  display: flex;
+  gap: 24px;
+}
+
+.two-column-layout .card {
+  margin-bottom: 0;
+}
+
+.column-left {
+  flex: 1;
+  min-height: 400px;
+}
+
+.column-right {
+  flex: 2;
+  min-height: 400px;
+}
+
+/* Org Info Box */
+.info-box {
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 2px solid #e2e8f0;
+}
+
+#org-status {
+  font-size: 1rem;
+  color: #4a5568;
+  text-align: center;
+  padding: 1rem;
+}
+
+.org-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.org-detail-item {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.org-detail-item strong {
+  display: block;
+  font-size: 0.875rem;
+  color: #718096;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.org-detail-item span {
+  font-size: 1rem;
+  color: #2d3748;
+  font-weight: 600;
+}
