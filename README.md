@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg?logo=google-chrome)](#)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg?logo=google-chrome)](https://chromewebstore.google.com/detail/mnkhginjgjbcmnfkcfnjbhpgnjfmeibd)
 [![Salesforce](https://img.shields.io/badge/Salesforce-Metadata%20API-00A1E0.svg)](#)
 
 > **Tagline**: *Explore, select, and export Salesforce metadata with precision — visually, securely, and effortlessly.*
@@ -164,6 +164,17 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ---
 
 ## 📦 Installation
+
+### 🌐 Install from Chrome Web Store (Recommended)
+
+**[📥 Get it on Chrome Web Store](https://chromewebstore.google.com/detail/mnkhginjgjbcmnfkcfnjbhpgnjfmeibd)**
+
+1. Click the link above or visit the Chrome Web Store
+2. Click **"Add to Chrome"**
+3. Confirm the installation
+4. Navigate to any Salesforce org and click the extension icon
+
+---
 
 ### 🔧 Load Extension Manually (Developer Mode)
 
