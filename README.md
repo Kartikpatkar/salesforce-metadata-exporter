@@ -1,7 +1,7 @@
 # � Salesforce Metadata Exporter – Package XML Generator & Metadata Explorer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/Version-1.0.2-blue.svg)](#)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg?logo=google-chrome)](https://chromewebstore.google.com/detail/mnkhginjgjbcmnfkcfnjbhpgnjfmeibd)
 [![Salesforce](https://img.shields.io/badge/Salesforce-Metadata%20API-00A1E0.svg)](#)
 
@@ -307,6 +307,12 @@ Please keep changes modular and follow the existing code structure.
 ---
 
 ## 📚 Resources
+
+### Project Documentation
+
+* [CHANGELOG](CHANGELOG.md) - Version history and release notes
+* [CONTRIBUTING](CONTRIBUTING.md) - Contribution guidelines
+* [PRIVACY](PRIVACY.md) - Privacy policy
 
 ### Salesforce Documentation
 

@@ -450,11 +450,11 @@ async function pollRetrieveStatus() {
       }
     }
     
-    // Check for timeout (max 10 minutes)
+    // Check for timeout (max 30 minutes for large enterprise orgs)
     const elapsed = Date.now() - state.startTime;
-    if (elapsed > 10 * 60 * 1000) {
+    if (elapsed > 30 * 60 * 1000) {
       chrome.alarms.clear('pollRetrieveStatus');
-      throw new Error('Export timeout - retrieve took longer than 10 minutes');
+      throw new Error('Export timeout - retrieve took longer than 30 minutes');
     }
     
   } catch (error) {
