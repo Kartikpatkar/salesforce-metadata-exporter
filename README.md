@@ -102,8 +102,9 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ### 📦 Smart `package.xml` Generator
 
 * Generates **valid Salesforce `package.xml`**
-* **Upload existing package.xml** to auto-select metadata types and members
-  * Drag & drop or click to upload
+* **Import existing package.xml** with multiple options:
+  * **Upload from file** - Select package.xml file from disk
+  * **Paste from clipboard** - Copy package.xml content and paste directly
   * Automatic parsing and validation
   * Smart handling of metadata types not available in current org
   * Preserves wildcard (*) and specific member selections
@@ -112,6 +113,7 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
   * Full wildcard deployment (`<members>*</members>`)
   * Partial deployments (specific components only)
 * Live **package.xml preview** with syntax highlighting
+* **Copy to clipboard** with one click
 * Automatically updates as selections change
 * Configurable Salesforce **API version** (v59.0)
 * One-click **copy to clipboard** with visual feedback
@@ -228,15 +230,15 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
      * Click to expand and view components
      * Select individual components or use wildcards
      * Use "Select All" / "Clear" buttons for quick actions
-   * **Option B: Upload package.xml** 📤
-     * Click "Upload package.xml" button
-     * Select an existing package.xml file
-     * Components will be auto-selected based on the file
+   * **Option B: Import from existing package.xml** 📤
+     * **Upload**: Click "Upload" button in preview section → Select package.xml file
+     * **Paste**: Copy package.xml content → Click "Paste" button
+     * Components will be auto-selected based on the content
      * Review and modify selections as needed
 
 4. **Preview Package XML**
    * View the generated package.xml in real-time
-   * Copy to clipboard or download
+   * Click "Copy" button to copy to clipboard
 
 5. **Export Metadata**
    * Click "Export Metadata as ZIP"

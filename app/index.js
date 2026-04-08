@@ -47,6 +47,7 @@ const elements = {
   presetClear: document.getElementById('preset-clear'),
   uploadPackageBtn: document.getElementById('upload-package-btn'),
   packageFileInput: document.getElementById('package-file-input'),
+  pastePackageBtn: document.getElementById('paste-package-btn'),
   
   // Package preview
   togglePreview: document.getElementById('toggle-preview'),
@@ -1048,6 +1049,60 @@ function readFileAsText(file) {
 }
 
 /**
+ * Handle paste package.xml from clipboard
+ * Reads XML content from clipboard and auto-selects metadata types and members
+ */
+async function handlePastePackage() {
+  try {
+    // Check if clipboard API is available
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      showError('Clipboard access is not supported in this browser.');
+      return;
+    }
+    
+    console.log('[App] Reading package.xml from clipboard...');
+    
+    // Read text from clipboard
+    const clipboardText = await navigator.clipboard.readText();
+    
+    if (!clipboardText || clipboardText.trim() === '') {
+      showError('Clipboard is empty. Please copy package.xml content first.');
+      return;
+    }
+    
+    // Validate package.xml
+    if (!PackageXMLParser.isValidPackageXML(clipboardText)) {
+      showError('Invalid package.xml content. Please copy valid Salesforce package.xml content.');
+      return;
+    }
+    
+    // Parse package.xml
+    const parsed = PackageXMLParser.parse(clipboardText);
+    console.log('[App] Parsed package.xml from clipboard:', parsed);
+    
+    // Show summary
+    const summary = PackageXMLParser.getSummary(parsed);
+    console.log('[App] Package summary:\n' + summary);
+    
+    // Auto-select metadata types and members
+    await applyPackageSelections(parsed);
+    
+    // Show success message
+    showInfo(`✅ Package.xml pasted successfully!\n${parsed.types.length} metadata types selected.`);
+    
+  } catch (error) {
+    console.error('[App] Failed to paste package.xml:', error);
+    
+    // Check for permission denied error
+    if (error.name === 'NotAllowedError') {
+      showError('Clipboard access denied. Please grant permission to access clipboard.');
+    } else {
+      showError('Failed to paste package.xml: ' + error.message);
+    }
+  }
+}
+
+/**
  * Apply selections from parsed package.xml
  * @param {Object} parsed - Parsed package.xml result
  */
@@ -1461,6 +1516,11 @@ function attachEventListeners() {
   }
   if (elements.packageFileInput) {
     elements.packageFileInput.addEventListener('change', handlePackageUpload);
+  }
+  
+  // Paste package.xml from clipboard button
+  if (elements.pastePackageBtn) {
+    elements.pastePackageBtn.addEventListener('click', handlePastePackage);
   }
   
   // Package preview toggle
