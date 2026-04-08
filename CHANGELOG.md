@@ -15,14 +15,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Each popup now checks ONLY its own tab's Salesforce session
   - Disabled cache and fallback checking when popup opens to prevent cross-org contamination
   - Added explicit early return when priority tab is checked to prevent fallback to stored sessions
+- **Package.xml upload member display** - Fixed issue where uploaded package.xml with specific members showed "*" (all) instead of the actual member list
+  - Preview now correctly shows specific members (e.g., Account, Contact, Opportunity)
+  - Member badges display correct count for uploaded selections
+  - Member checkboxes are properly pre-selected when expanding metadata types
+  - Export uses correct specific members from uploaded package.xml
 
 ### Added
+- **Package.xml Upload Feature** - Upload existing package.xml files to auto-select metadata types and members
+  - New "Upload" button in package preview section
+  - Automatic parsing and validation of package.xml files
+  - Auto-selection of metadata types found in uploaded package.xml
+  - Support for wildcard (*) and specific member selections
+  - Auto-expansion of metadata types with specific members for easy verification
+  - Smart handling of metadata types not available in current org with informative messages
+- **Clipboard Paste Feature** - Paste package.xml content directly from clipboard
+  - New "Paste" button in package preview section
+  - Reads package.xml content from system clipboard
+  - Same validation and auto-selection capabilities as file upload
+  - Handles permission errors gracefully
+  - Shows appropriate error messages for invalid XML or empty clipboard
 - **Elapsed time display** - Progress messages now show elapsed time after 1 minute (e.g., "Processing... (5m 23s elapsed)") to provide better feedback during long-running exports
 - **Improved timeout error message** - More descriptive error message that includes elapsed time and suggests possible solutions when timeout occurs
 - **Priority tab detection** - Extension now prioritizes checking the tab that opened the popup, ensuring correct org connection in multi-tab scenarios
 - **Forced fresh session checks on popup open** - Cache is now bypassed when opening the popup to ensure accurate org detection
+- **PackageXMLParser library** - New utility class for parsing and validating Salesforce package.xml files
 
 ### Changed
+- **UI Reorganization** - Improved package.xml action buttons layout
+  - Moved Upload, Paste, and Copy buttons to package preview section header
+  - Grouped all package.xml operations together for better UX
+  - Responsive design - button text hides on smaller screens, icons remain visible
+  - Consistent purple theme with hover effects across all action buttons
 - Enhanced user experience for large org exports with better progress visibility
 - Aligned frontend and backend timeout limits to prevent premature failures
 - Improved session detection logic to support multiple simultaneous popup instances with complete isolation

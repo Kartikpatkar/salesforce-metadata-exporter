@@ -9,11 +9,11 @@
 }
 
 body.dark-theme #theme-toggle .sun-icon {
-  display: none;
+  display: none !important;
 }
 
 body.dark-theme #theme-toggle .moon-icon {
-  display: block;
+  display: block !important;
 }
 
 /* Dark Theme - Body & Container */
@@ -34,11 +34,13 @@ body.dark-theme header {
 body.dark-theme .profile-btn {
   border-color: rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
 }
 
 body.dark-theme .profile-btn:hover {
   background: rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
 }
 
 /* Dark Theme - Cards */
