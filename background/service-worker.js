@@ -74,11 +74,17 @@ self.addEventListener('activate', (event) => {
 
 /**
  * Handle extension icon click - open app in new tab
+ * IMPORTANT: The 'tab' parameter is the tab that was active when icon was clicked
  */
 chrome.action.onClicked.addListener(async (tab) => {
-  console.log('[Service Worker] Extension icon clicked');
+  console.log('[Service Worker] Extension icon clicked from tab:', tab.id, tab.url);
   
   try {
+    // Store the source tab ID (the tab that was active when icon was clicked)
+    // This is needed because the extension opens in a new tab
+    await chrome.storage.local.set({ sourceTabId: tab.id });
+    console.log('[Service Worker] Stored source tab ID:', tab.id);
+    
     // Check if extension page is already open
     const extensionUrl = chrome.runtime.getURL('app/index.html');
     const tabs = await chrome.tabs.query({ url: extensionUrl });
@@ -159,7 +165,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleCheckAuth(payload = {}, sendResponse) {
   try {
     console.log('[Service Worker] Checking Salesforce auth...');
-    const org = await sfConnector.checkAuth(payload);
+    
+    const options = { ...payload };
+    
+    // Get the source tab ID (the tab that was active when extension icon was clicked)
+    const storage = await chrome.storage.local.get(['sourceTabId']);
+    const sourceTabId = storage.sourceTabId;
+    
+    if (sourceTabId) {
+      options.priorityTabId = sourceTabId;
+      console.log('[Service Worker] Using source tab from icon click:', sourceTabId);
+    } else if (payload.currentTabId) {
+      // Fallback to currentTabId if provided
+      options.priorityTabId = payload.currentTabId;
+      console.log('[Service Worker] Using currentTabId from payload:', payload.currentTabId);
+    }
+    
+    const org = await sfConnector.checkAuth(options);
     sendResponse({ success: true, org });
   } catch (error) {
     console.error('[Service Worker] Auth check failed:', error);
@@ -450,11 +472,11 @@ async function pollRetrieveStatus() {
       }
     }
     
-    // Check for timeout (max 10 minutes)
+    // Check for timeout (max 30 minutes for large enterprise orgs)
     const elapsed = Date.now() - state.startTime;
-    if (elapsed > 10 * 60 * 1000) {
+    if (elapsed > 30 * 60 * 1000) {
       chrome.alarms.clear('pollRetrieveStatus');
-      throw new Error('Export timeout - retrieve took longer than 10 minutes');
+      throw new Error('Export timeout - retrieve took longer than 30 minutes');
     }
     
   } catch (error) {

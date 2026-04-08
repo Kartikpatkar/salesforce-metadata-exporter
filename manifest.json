@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Salesforce Metadata Exporter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Export Salesforce metadata (not data) as a ZIP file using the Metadata API. Requires active Salesforce session.",
   
   "icons": {

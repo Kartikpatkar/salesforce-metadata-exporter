@@ -172,18 +172,25 @@ async function copyPackageToClipboard() {
  * Detect and display Salesforce org information via SalesforceConnector
  * 
  * FLOW:
- * 1. Send CHECK_SF_AUTH message to background worker
- * 2. Background worker uses SalesforceConnector to check auth
- * 3. Update UI with org details
+ * 1. Extension icon clicked from a Salesforce tab
+ * 2. Service worker stores that tab ID as 'sourceTabId'
+ * 3. Service worker opens this extension page in a new tab
+ * 4. This function sends CHECK_SF_AUTH to service worker
+ * 5. Service worker retrieves sourceTabId and checks that tab's session
+ * 6. Update UI with org details from the source tab
  */
 async function detectSalesforceOrg() {
   console.log('[App] Checking Salesforce authentication...');
   
   try {
     // Request auth check from background worker
+    // The service worker will use the sourceTabId (the tab that was active when icon was clicked)
+    // IMPORTANT: Always skipCache when opening popup to ensure fresh check of current tab
     const response = await chrome.runtime.sendMessage({
       type: 'CHECK_SF_AUTH',
-      payload: { skipCache: false }
+      payload: { 
+        skipCache: true // Force fresh check to prevent cached session from different org
+      }
     });
     
     if (response.success && response.org.isAuthenticated) {
@@ -1091,8 +1098,9 @@ async function startExport() {
  * Poll export status until complete
  */
 async function pollExportStatus() {
-  const maxAttempts = 60; // 5 minutes (5 seconds * 60)
+  const maxAttempts = 360; // 30 minutes (5 seconds * 360) - needed for large enterprise orgs
   let attempts = 0;
+  const startTime = Date.now();
   
   while (attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
@@ -1107,7 +1115,18 @@ async function pollExportStatus() {
     
     const { status, progress, message } = response;
     
-    showExportProgress(message || 'Processing...', progress || 50);
+    // Add elapsed time to progress message for long-running exports
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+    let progressMessage = message || 'Processing...';
+    
+    // Show elapsed time after 1 minute for user awareness
+    if (elapsedSeconds > 60) {
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      progressMessage += ` (${minutes}m ${seconds}s elapsed)`;
+    }
+    
+    showExportProgress(progressMessage, progress || 50);
     
     if (status === 'Succeeded') {
       showExportProgress('✅ Export complete! Download started.', 100);
@@ -1122,7 +1141,8 @@ async function pollExportStatus() {
     attempts++;
   }
   
-  throw new Error('Export timed out');
+  const elapsedMinutes = Math.round((Date.now() - startTime) / 60000);
+  throw new Error(`Export timed out after ${elapsedMinutes} minutes. Large orgs may require longer processing time. Please try again or contact support.`);
 }
 
 /**
