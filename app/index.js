@@ -57,8 +57,7 @@ const elements = {
   exportBtn: document.getElementById('export-btn'),
   exportStatus: document.getElementById('export-status'),
   statusMessage: document.getElementById('status-message'),
-  exportProgress: document.getElementById('export-progress'),
-  errorMessage: document.getElementById('error-message')
+  exportProgress: document.getElementById('export-progress')
 };
 
 // ========================================
@@ -143,9 +142,6 @@ async function copyPackageToClipboard() {
   try {
     await navigator.clipboard.writeText(packageXML);
     
-    // Clear any error messages
-    hideError();
-    
     // Visual feedback
     const copyBtn = document.getElementById('copy-package-btn');
     const copyText = copyBtn.querySelector('.copy-text');
@@ -161,6 +157,7 @@ async function copyPackageToClipboard() {
     }, 2000);
     
     console.log('[App] Package.xml copied to clipboard');
+    showSuccess('Package.xml copied to clipboard!');
   } catch (error) {
     console.error('[App] Failed to copy to clipboard:', error);
     showError('Failed to copy to clipboard');
@@ -223,7 +220,6 @@ async function loginToProduction() {
     
     if (response.success && response.org.isAuthenticated) {
       displayOrgInfo(response.org);
-      hideError();
     } else {
       showError('Login failed. Please try again.');
     }
@@ -246,7 +242,6 @@ async function loginToSandbox() {
     
     if (response.success && response.org.isAuthenticated) {
       displayOrgInfo(response.org);
-      hideError();
     } else {
       showError('Sandbox login failed. Please try again.');
     }
@@ -266,7 +261,7 @@ async function switchOrg() {
     
     await chrome.runtime.sendMessage({ type: 'SF_SWITCH_ORG' });
     displayOrgInfo(null);
-    showInfo('Session cleared. Please log in again.');
+    showSuccess('Session cleared. Please log in again.');
   } catch (error) {
     console.error('[App] Switch org failed:', error);
     showError('Failed to switch org: ' + error.message);
@@ -1023,7 +1018,7 @@ async function handlePackageUpload(event) {
     await applyPackageSelections(parsed);
     
     // Show success message
-    showInfo(`✅ Package.xml loaded successfully!\n${parsed.types.length} metadata types selected.`);
+    showSuccess(`Package.xml loaded successfully! ${parsed.types.length} metadata types selected.`);
     
     // Reset file input so the same file can be uploaded again
     event.target.value = '';
@@ -1088,7 +1083,7 @@ async function handlePastePackage() {
     await applyPackageSelections(parsed);
     
     // Show success message
-    showInfo(`✅ Package.xml pasted successfully!\n${parsed.types.length} metadata types selected.`);
+    showSuccess(`Package.xml pasted successfully! ${parsed.types.length} metadata types selected.`);
     
   } catch (error) {
     console.error('[App] Failed to paste package.xml:', error);
@@ -1395,7 +1390,6 @@ function showExportProgress(message, progress = 0) {
   elements.statusMessage.textContent = message;
   elements.exportProgress.value = progress;
   elements.exportBtn.disabled = true;
-  elements.errorMessage.classList.add('hidden');
 }
 
 /**
@@ -1410,24 +1404,28 @@ function hideExportProgress() {
  * Display error message
  * @param {string} message - Error message to display
  */
-function showError(message) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.classList.remove('hidden');
-}
-
 /**
- * Hide error message
+ * Show error message using toast notification
+ * @param {string} message - Error message to display
  */
-function hideError() {
-  elements.errorMessage.classList.add('hidden');
+function showError(message) {
+  showToast('Error', message, 'error');
 }
 
 /**
- * Show informational message (same as error but less alarming)
+ * Show informational message using toast notification
+ * @param {string} message - Info message to display
  */
 function showInfo(message) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.classList.remove('hidden');
+  showToast('Info', message, 'info');
+}
+
+/**
+ * Show success message using toast notification
+ * @param {string} message - Success message to display
+ */
+function showSuccess(message) {
+  showToast('Success', message, 'success');
 }
 
 /**
