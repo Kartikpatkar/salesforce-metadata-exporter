@@ -172,18 +172,25 @@ async function copyPackageToClipboard() {
  * Detect and display Salesforce org information via SalesforceConnector
  * 
  * FLOW:
- * 1. Send CHECK_SF_AUTH message to background worker
- * 2. Background worker uses SalesforceConnector to check auth
- * 3. Update UI with org details
+ * 1. Extension icon clicked from a Salesforce tab
+ * 2. Service worker stores that tab ID as 'sourceTabId'
+ * 3. Service worker opens this extension page in a new tab
+ * 4. This function sends CHECK_SF_AUTH to service worker
+ * 5. Service worker retrieves sourceTabId and checks that tab's session
+ * 6. Update UI with org details from the source tab
  */
 async function detectSalesforceOrg() {
   console.log('[App] Checking Salesforce authentication...');
   
   try {
     // Request auth check from background worker
+    // The service worker will use the sourceTabId (the tab that was active when icon was clicked)
+    // IMPORTANT: Always skipCache when opening popup to ensure fresh check of current tab
     const response = await chrome.runtime.sendMessage({
       type: 'CHECK_SF_AUTH',
-      payload: { skipCache: false }
+      payload: { 
+        skipCache: true // Force fresh check to prevent cached session from different org
+      }
     });
     
     if (response.success && response.org.isAuthenticated) {

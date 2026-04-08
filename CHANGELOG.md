@@ -9,16 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Export timeout for large enterprise orgs** - Increased timeout from 5 minutes to 30 minutes to accommodate large Salesforce orgs with thousands of metadata components
-- Frontend polling timeout extended from 60 attempts (5 min) to 360 attempts (30 min)
-- Service worker timeout extended from 10 minutes to 30 minutes
+  - Frontend polling timeout extended from 60 attempts (5 min) to 360 attempts (30 min)
+  - Service worker timeout extended from 10 minutes to 30 minutes
+- **Simultaneous popup connection issue** - Fixed issue where opening multiple extension popups from different orgs would all connect to the first org
+  - Each popup now checks ONLY its own tab's Salesforce session
+  - Disabled cache and fallback checking when popup opens to prevent cross-org contamination
+  - Added explicit early return when priority tab is checked to prevent fallback to stored sessions
 
 ### Added
 - **Elapsed time display** - Progress messages now show elapsed time after 1 minute (e.g., "Processing... (5m 23s elapsed)") to provide better feedback during long-running exports
 - **Improved timeout error message** - More descriptive error message that includes elapsed time and suggests possible solutions when timeout occurs
+- **Priority tab detection** - Extension now prioritizes checking the tab that opened the popup, ensuring correct org connection in multi-tab scenarios
+- **Forced fresh session checks on popup open** - Cache is now bypassed when opening the popup to ensure accurate org detection
 
 ### Changed
 - Enhanced user experience for large org exports with better progress visibility
 - Aligned frontend and backend timeout limits to prevent premature failures
+- Improved session detection logic to support multiple simultaneous popup instances with complete isolation
 
 ## [1.0.1] - 2026-01-23
 
