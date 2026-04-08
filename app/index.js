@@ -45,6 +45,8 @@ const elements = {
   metadataSearch: document.getElementById('metadata-search'),
   presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
+  uploadPackageBtn: document.getElementById('upload-package-btn'),
+  packageFileInput: document.getElementById('package-file-input'),
   
   // Package preview
   togglePreview: document.getElementById('toggle-preview'),
@@ -597,6 +599,19 @@ function renderMembers(metadataType, members, membersContainer) {
     checkbox.dataset.metadataType = metadataType;
     checkbox.addEventListener('change', (e) => handleMemberSelection(e, metadataType));
     
+    // Check if this member is already selected
+    const selectedMembersList = selectedMembers.get(metadataType);
+    if (selectedMembersList === '*') {
+      // All members selected
+      checkbox.checked = true;
+    } else if (Array.isArray(selectedMembersList) && selectedMembersList.includes(member.fullName)) {
+      // From package.xml upload
+      checkbox.checked = true;
+    } else if (selectedMembersList instanceof Set && selectedMembersList.has(member.fullName)) {
+      // From manual selection
+      checkbox.checked = true;
+    }
+    
     label.appendChild(checkbox);
     label.appendChild(document.createTextNode(member.fullName));
     membersList.appendChild(label);
@@ -690,7 +705,12 @@ function updateMemberCountBadge(metadataType) {
   if (members === '*') {
     badge.textContent = '*';
     badge.classList.remove('hidden');
+  } else if (Array.isArray(members) && members.length > 0) {
+    // From package.xml upload
+    badge.textContent = members.length;
+    badge.classList.remove('hidden');
   } else if (members instanceof Set && members.size > 0) {
+    // From manual selection
     badge.textContent = members.size;
     badge.classList.remove('hidden');
   } else {
@@ -964,6 +984,149 @@ function clearAllSelections() {
 }
 
 // ========================================
+// PACKAGE.XML UPLOAD
+// ========================================
+
+/**
+ * Handle package.xml file upload
+ * Parses the uploaded file and auto-selects the metadata types and members
+ */
+async function handlePackageUpload(event) {
+  const file = event.target.files[0];
+  
+  if (!file) {
+    return;
+  }
+  
+  console.log('[App] Uploaded file:', file.name, file.size, 'bytes');
+  
+  try {
+    // Read file content
+    const fileContent = await readFileAsText(file);
+    
+    // Validate package.xml
+    if (!PackageXMLParser.isValidPackageXML(fileContent)) {
+      showError('Invalid package.xml file. Please upload a valid Salesforce package.xml file.');
+      return;
+    }
+    
+    // Parse package.xml
+    const parsed = PackageXMLParser.parse(fileContent);
+    console.log('[App] Parsed package.xml:', parsed);
+    
+    // Show summary
+    const summary = PackageXMLParser.getSummary(parsed);
+    console.log('[App] Package summary:\n' + summary);
+    
+    // Auto-select metadata types and members
+    await applyPackageSelections(parsed);
+    
+    // Show success message
+    showInfo(`✅ Package.xml loaded successfully!\n${parsed.types.length} metadata types selected.`);
+    
+    // Reset file input so the same file can be uploaded again
+    event.target.value = '';
+    
+  } catch (error) {
+    console.error('[App] Failed to parse package.xml:', error);
+    showError('Failed to parse package.xml: ' + error.message);
+  }
+}
+
+/**
+ * Read file as text
+ * @param {File} file - File object
+ * @returns {Promise<string>} File content as text
+ */
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+}
+
+/**
+ * Apply selections from parsed package.xml
+ * @param {Object} parsed - Parsed package.xml result
+ */
+async function applyPackageSelections(parsed) {
+  console.log('[App] Applying package selections...');
+  
+  // Clear current selections
+  clearAllSelections();
+  
+  // Get all available metadata types (checkboxes currently in the DOM)
+  const availableTypes = new Set();
+  const checkboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
+  checkboxes.forEach(checkbox => {
+    availableTypes.add(checkbox.value);
+  });
+  
+  console.log('[App] Available metadata types:', availableTypes.size);
+  
+  let selectedCount = 0;
+  let skippedCount = 0;
+  const skippedTypes = [];
+  
+  parsed.types.forEach(({ name, members }) => {
+    // Check if this metadata type exists in the current org
+    if (!availableTypes.has(name)) {
+      console.warn('[App] Metadata type not available in this org:', name);
+      skippedTypes.push(name);
+      skippedCount++;
+      return;
+    }
+    
+    // Select the metadata type
+    selectedMetadataTypes.add(name);
+    
+    // Find and check the checkbox
+    const checkbox = document.querySelector(`#metadata-types input[value="${name}"]`);
+    if (checkbox) {
+      checkbox.checked = true;
+      selectedCount++;
+    }
+    
+    // Handle members
+    if (members.includes('*')) {
+      // Wildcard - select all members
+      selectedMembers.set(name, '*');
+      console.log(`[App] Selected all members for ${name}`);
+    } else {
+      // Specific members
+      selectedMembers.set(name, members);
+      console.log(`[App] Selected ${members.length} specific members for ${name}:`, members.slice(0, 5));
+    }
+  });
+  
+  console.log(`[App] Applied selections: ${selectedCount} types, skipped ${skippedCount} types`);
+  
+  if (skippedTypes.length > 0) {
+    console.warn('[App] Skipped types (not available in org):', skippedTypes);
+    showInfo(`⚠️ Note: ${skippedCount} metadata types from package.xml are not available in this org.\n\nSkipped: ${skippedTypes.slice(0, 5).join(', ')}${skippedTypes.length > 5 ? '...' : ''}`);
+  }
+  
+  // Update UI
+  updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+  
+  // Expand metadata types with specific members
+  parsed.types.forEach(({ name, members }) => {
+    if (availableTypes.has(name) && !members.includes('*')) {
+      // Find the expand button and trigger expansion to show selected members
+      const expandBtn = document.querySelector(`button[data-metadata-type="${name}"]`);
+      if (expandBtn && !expandBtn.classList.contains('expanded')) {
+        // Auto-expand to show the selected members
+        expandBtn.click();
+      }
+    }
+  });
+}
+
+// ========================================
 // PACKAGE.XML GENERATION
 // ========================================
 
@@ -985,7 +1148,18 @@ function updatePackagePreview() {
     // Build types with members
     const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
       const members = selectedMembers.get(type);
-      const memberArray = members === '*' ? ['*'] : (members instanceof Set ? Array.from(members) : ['*']);
+      
+      // Handle different member formats (wildcard, array, or Set)
+      let memberArray;
+      if (members === '*') {
+        memberArray = ['*'];
+      } else if (Array.isArray(members)) {
+        memberArray = members; // From package.xml upload
+      } else if (members instanceof Set) {
+        memberArray = Array.from(members); // From manual selection
+      } else {
+        memberArray = ['*']; // Default fallback
+      }
       
       console.log(`[App] Type: ${type}, Members:`, memberArray);
       
@@ -1057,7 +1231,18 @@ async function startExport() {
     // Build types with members (same as preview)
     const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
       const members = selectedMembers.get(type);
-      const memberArray = members === '*' ? ['*'] : (members instanceof Set ? Array.from(members) : ['*']);
+      
+      // Handle different member formats (wildcard, array, or Set)
+      let memberArray;
+      if (members === '*') {
+        memberArray = ['*'];
+      } else if (Array.isArray(members)) {
+        memberArray = members; // From package.xml upload
+      } else if (members instanceof Set) {
+        memberArray = Array.from(members); // From manual selection
+      } else {
+        memberArray = ['*']; // Default fallback
+      }
       
       return {
         name: type,
@@ -1266,6 +1451,16 @@ function attachEventListeners() {
   }
   if (elements.presetClear) {
     elements.presetClear.addEventListener('click', clearAllSelections);
+  }
+  
+  // Upload package.xml button
+  if (elements.uploadPackageBtn) {
+    elements.uploadPackageBtn.addEventListener('click', () => {
+      elements.packageFileInput.click();
+    });
+  }
+  if (elements.packageFileInput) {
+    elements.packageFileInput.addEventListener('change', handlePackageUpload);
   }
   
   // Package preview toggle

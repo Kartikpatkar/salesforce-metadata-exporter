@@ -77,6 +77,10 @@
                 <div id="preset-buttons">
                     <button id="preset-select-all" class="preset-btn">Select All</button>
                     <button id="preset-clear" class="preset-btn secondary">Clear</button>
+                    <button id="upload-package-btn" class="preset-btn" title="Upload package.xml to auto-select components">
+                        📤 Upload package.xml
+                    </button>
+                    <input type="file" id="package-file-input" accept=".xml,.txt" style="display: none;">
                 </div>
 
                 <!-- Metadata Type Checkboxes (dynamically populated from org) -->
@@ -210,6 +214,8 @@
         </div>
     </div>
 
+    <!-- Scripts -->
+    <script src="../lib/package-xml-parser.js"></script>
     <script type="module" src="index.js"></script>
 </body>
 

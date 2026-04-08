@@ -102,6 +102,12 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ### 📦 Smart `package.xml` Generator
 
 * Generates **valid Salesforce `package.xml`**
+* **Upload existing package.xml** to auto-select metadata types and members
+  * Drag & drop or click to upload
+  * Automatic parsing and validation
+  * Smart handling of metadata types not available in current org
+  * Preserves wildcard (*) and specific member selections
+  * Auto-expands types with specific members for verification
 * Supports:
   * Full wildcard deployment (`<members>*</members>`)
   * Partial deployments (specific components only)
@@ -110,7 +116,7 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 * Configurable Salesforce **API version** (v59.0)
 * One-click **copy to clipboard** with visual feedback
 * Export metadata as **downloadable ZIP package**
-* Real-time export progress tracking
+* Real-time export progress tracking with elapsed time display
 
 ---
 
@@ -217,9 +223,16 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
    * Click "Login to Production" or "Login to Sandbox"
 
 3. **Select Metadata Types**
-   * Browse available metadata types
-   * Click to expand and view components
-   * Select individual components or use wildcards
+   * **Option A: Manual Selection**
+     * Browse available metadata types
+     * Click to expand and view components
+     * Select individual components or use wildcards
+     * Use "Select All" / "Clear" buttons for quick actions
+   * **Option B: Upload package.xml** 📤
+     * Click "Upload package.xml" button
+     * Select an existing package.xml file
+     * Components will be auto-selected based on the file
+     * Review and modify selections as needed
 
 4. **Preview Package XML**
    * View the generated package.xml in real-time
@@ -227,7 +240,7 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 5. **Export Metadata**
    * Click "Export Metadata as ZIP"
-   * Monitor progress
+   * Monitor progress (shows elapsed time for long exports)
    * Download completes automatically
 
 ---
