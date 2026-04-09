@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- _No unreleased changes._
+
+## [1.0.3] - 2026-04-09
+
 ### Added
 - **Toast notifications** - Replaced alert-style messages with top-right toast notifications for info/success/error feedback
 - **Persistent export progress toast** - Export progress now stays visible while in progress, with the message updating as polling continues
@@ -167,12 +171,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.0.3** (Apr 2026) - Toast-based UX, export timeout setting, SVG sprite icons
 - **1.0.2** (Apr 2026) - Large org timeout fix + progress improvements
 - **1.0.1** (Jan 2026) - Dark theme, modular CSS, Chrome Web Store prep
 - **1.0.0** (Jan 2026) - Initial release
 
 ---
 
+[Unreleased]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/releases/tag/v1.0.0
