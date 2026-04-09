@@ -54,10 +54,7 @@ const elements = {
   packagePreview: document.getElementById('package-preview'),
   
   // Export controls
-  exportBtn: document.getElementById('export-btn'),
-  exportStatus: document.getElementById('export-status'),
-  statusMessage: document.getElementById('status-message'),
-  exportProgress: document.getElementById('export-progress')
+  exportBtn: document.getElementById('export-btn')
 };
 
 // ========================================
@@ -1322,6 +1319,11 @@ async function startExport() {
     
   } catch (error) {
     console.error('[App] Export failed:', error);
+    // Dismiss progress toast before showing error
+    if (progressToast) {
+      dismissToast(progressToast);
+      progressToast = null;
+    }
     showError(`Export failed: ${error.message}`);
   } finally {
     exportInProgress = false;
@@ -1364,8 +1366,7 @@ async function pollExportStatus() {
     showExportProgress(progressMessage, progress || 50);
     
     if (status === 'Succeeded') {
-      showExportProgress('✅ Export complete! Download started.', 100);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      showExportProgress('Export complete! Download started.', 100);
       return;
     }
     
@@ -1380,23 +1381,42 @@ async function pollExportStatus() {
   throw new Error(`Export timed out after ${elapsedMinutes} minutes. Large orgs may require longer processing time. Please try again or contact support.`);
 }
 
+// Track persistent export progress toast
+let progressToast = null;
+
 /**
- * Show export progress UI
+ * Show export progress via toast notification
  * @param {string} message - Status message to display
  * @param {number} progress - Progress value (0-100)
  */
 function showExportProgress(message, progress = 0) {
-  elements.exportStatus.classList.remove('hidden');
-  elements.statusMessage.textContent = message;
-  elements.exportProgress.value = progress;
+  if (progress === 0) {
+    // Create persistent toast at start
+    progressToast = showToast('Export Progress', message, 'info', true);
+  } else if (progress === 100) {
+    // Update to success and dismiss after delay
+    if (progressToast) {
+      updateToast(progressToast, 'Export Complete', message, 'success');
+      dismissToast(progressToast, 2000);
+      progressToast = null;
+    } else {
+      showSuccess(message);
+    }
+  } else if (progressToast) {
+    // Update the persistent toast with new message
+    updateToast(progressToast, 'Export Progress', message);
+  }
   elements.exportBtn.disabled = true;
 }
 
 /**
- * Hide export progress UI
+ * Hide export progress (reset state)
  */
 function hideExportProgress() {
-  elements.exportStatus.classList.add('hidden');
+  if (progressToast) {
+    dismissToast(progressToast);
+    progressToast = null;
+  }
   updateExportButtonState();
 }
 
@@ -1555,11 +1575,14 @@ function handleBackgroundMessage(message) {
       break;
     
     case 'EXPORT_COMPLETE':
-      showExportProgress('✅ Export complete! Downloading...', 100);
-      setTimeout(hideExportProgress, 2000);
+      showExportProgress('Export complete! Download started.', 100);
       break;
     
     case 'EXPORT_ERROR':
+      if (progressToast) {
+        dismissToast(progressToast);
+        progressToast = null;
+      }
       showError(message.error);
       hideExportProgress();
       break;

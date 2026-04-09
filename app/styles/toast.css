@@ -75,6 +75,11 @@ body.dark-theme {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Persistent toasts don't auto-dismiss */
+.toast[data-persistent="true"] {
+    animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .toast:hover {
     transform: translateX(-4px);
     box-shadow: 0 12px 48px rgba(102, 126, 234, 0.4);
@@ -199,6 +204,24 @@ body.dark-theme .toast:hover {
         opacity: 0;
         transform: translateY(-20px) scale(0.95);
     }
+}
+
+/* Pulse animation for persistent toasts */
+@keyframes persistentPulse {
+    0%, 100% {
+        border-color: var(--toast-info-border);
+        box-shadow: var(--toast-shadow);
+    }
+    50% {
+        border-color: var(--primary-color);
+        box-shadow: var(--toast-shadow), 0 0 20px rgba(102, 126, 234, 0.4);
+    }
+}
+
+/* Apply pulse to persistent info toasts */
+.toast.info[data-persistent="true"] {
+    animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        persistentPulse 2s ease-in-out infinite;
 }
 
 /* Adjustments for small screens (mobile) */
