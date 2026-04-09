@@ -124,11 +124,6 @@
                     <button id="export-btn" class="primary-btn" disabled>
                         🚀 Export Metadata
                     </button>
-                    <div id="export-status" class="hidden">
-                        <p id="status-message">Preparing export...</p>
-                        <progress id="export-progress" max="100" value="0"></progress>
-                    </div>
-                    <p id="error-message" class="error hidden"></p>
                 </div>
             </section>
         </div>
@@ -228,7 +223,11 @@
         </div>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- Scripts -->
+    <script src="../utils/toast.js"></script>
     <script src="../lib/package-xml-parser.js"></script>
     <script type="module" src="index.js"></script>
 </body>

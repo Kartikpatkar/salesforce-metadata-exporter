@@ -54,11 +54,7 @@ const elements = {
   packagePreview: document.getElementById('package-preview'),
   
   // Export controls
-  exportBtn: document.getElementById('export-btn'),
-  exportStatus: document.getElementById('export-status'),
-  statusMessage: document.getElementById('status-message'),
-  exportProgress: document.getElementById('export-progress'),
-  errorMessage: document.getElementById('error-message')
+  exportBtn: document.getElementById('export-btn')
 };
 
 // ========================================
@@ -143,9 +139,6 @@ async function copyPackageToClipboard() {
   try {
     await navigator.clipboard.writeText(packageXML);
     
-    // Clear any error messages
-    hideError();
-    
     // Visual feedback
     const copyBtn = document.getElementById('copy-package-btn');
     const copyText = copyBtn.querySelector('.copy-text');
@@ -161,6 +154,7 @@ async function copyPackageToClipboard() {
     }, 2000);
     
     console.log('[App] Package.xml copied to clipboard');
+    showSuccess('Package.xml copied to clipboard!');
   } catch (error) {
     console.error('[App] Failed to copy to clipboard:', error);
     showError('Failed to copy to clipboard');
@@ -223,7 +217,6 @@ async function loginToProduction() {
     
     if (response.success && response.org.isAuthenticated) {
       displayOrgInfo(response.org);
-      hideError();
     } else {
       showError('Login failed. Please try again.');
     }
@@ -246,7 +239,6 @@ async function loginToSandbox() {
     
     if (response.success && response.org.isAuthenticated) {
       displayOrgInfo(response.org);
-      hideError();
     } else {
       showError('Sandbox login failed. Please try again.');
     }
@@ -266,7 +258,7 @@ async function switchOrg() {
     
     await chrome.runtime.sendMessage({ type: 'SF_SWITCH_ORG' });
     displayOrgInfo(null);
-    showInfo('Session cleared. Please log in again.');
+    showSuccess('Session cleared. Please log in again.');
   } catch (error) {
     console.error('[App] Switch org failed:', error);
     showError('Failed to switch org: ' + error.message);
@@ -635,6 +627,14 @@ async function loadSavedSelections() {
     
     if (result.selectedMetadataTypes) {
       selectedMetadataTypes = new Set(result.selectedMetadataTypes);
+
+      // Every time the extension opens, default selected types to wildcard members.
+      // This prevents a state where types appear selected but the preview/export
+      // logic has no member selection context.
+      selectedMembers.clear();
+      selectedMetadataTypes.forEach(type => {
+        selectedMembers.set(type, '*');
+      });
       
       // Update checkboxes
       elements.metadataCheckboxes.forEach(checkbox => {
@@ -642,8 +642,12 @@ async function loadSavedSelections() {
           checkbox.checked = true;
         }
       });
+
+      // Update member badges for selected types (shows '*')
+      selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
       
       updateExportButtonState();
+      updatePackagePreview();
       console.log('[App] Loaded saved selections:', selectedMetadataTypes);
     }
   } catch (error) {
@@ -1023,7 +1027,7 @@ async function handlePackageUpload(event) {
     await applyPackageSelections(parsed);
     
     // Show success message
-    showInfo(`✅ Package.xml loaded successfully!\n${parsed.types.length} metadata types selected.`);
+    showSuccess(`Package.xml loaded successfully! ${parsed.types.length} metadata types selected.`);
     
     // Reset file input so the same file can be uploaded again
     event.target.value = '';
@@ -1088,7 +1092,7 @@ async function handlePastePackage() {
     await applyPackageSelections(parsed);
     
     // Show success message
-    showInfo(`✅ Package.xml pasted successfully!\n${parsed.types.length} metadata types selected.`);
+    showSuccess(`Package.xml pasted successfully! ${parsed.types.length} metadata types selected.`);
     
   } catch (error) {
     console.error('[App] Failed to paste package.xml:', error);
@@ -1327,6 +1331,11 @@ async function startExport() {
     
   } catch (error) {
     console.error('[App] Export failed:', error);
+    // Dismiss progress toast before showing error
+    if (progressToast) {
+      dismissToast(progressToast);
+      progressToast = null;
+    }
     showError(`Export failed: ${error.message}`);
   } finally {
     exportInProgress = false;
@@ -1369,8 +1378,7 @@ async function pollExportStatus() {
     showExportProgress(progressMessage, progress || 50);
     
     if (status === 'Succeeded') {
-      showExportProgress('✅ Export complete! Download started.', 100);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      showExportProgress('Export complete! Download started.', 100);
       return;
     }
     
@@ -1385,24 +1393,42 @@ async function pollExportStatus() {
   throw new Error(`Export timed out after ${elapsedMinutes} minutes. Large orgs may require longer processing time. Please try again or contact support.`);
 }
 
+// Track persistent export progress toast
+let progressToast = null;
+
 /**
- * Show export progress UI
+ * Show export progress via toast notification
  * @param {string} message - Status message to display
  * @param {number} progress - Progress value (0-100)
  */
 function showExportProgress(message, progress = 0) {
-  elements.exportStatus.classList.remove('hidden');
-  elements.statusMessage.textContent = message;
-  elements.exportProgress.value = progress;
+  if (progress === 0) {
+    // Create persistent toast at start
+    progressToast = showToast('Export Progress', message, 'info', true);
+  } else if (progress === 100) {
+    // Update to success and dismiss after delay
+    if (progressToast) {
+      updateToast(progressToast, 'Export Complete', message, 'success');
+      dismissToast(progressToast, 2000);
+      progressToast = null;
+    } else {
+      showSuccess(message);
+    }
+  } else if (progressToast) {
+    // Update the persistent toast with new message
+    updateToast(progressToast, 'Export Progress', message);
+  }
   elements.exportBtn.disabled = true;
-  elements.errorMessage.classList.add('hidden');
 }
 
 /**
- * Hide export progress UI
+ * Hide export progress (reset state)
  */
 function hideExportProgress() {
-  elements.exportStatus.classList.add('hidden');
+  if (progressToast) {
+    dismissToast(progressToast);
+    progressToast = null;
+  }
   updateExportButtonState();
 }
 
@@ -1410,24 +1436,28 @@ function hideExportProgress() {
  * Display error message
  * @param {string} message - Error message to display
  */
-function showError(message) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.classList.remove('hidden');
-}
-
 /**
- * Hide error message
+ * Show error message using toast notification
+ * @param {string} message - Error message to display
  */
-function hideError() {
-  elements.errorMessage.classList.add('hidden');
+function showError(message) {
+  showToast('Error', message, 'error');
 }
 
 /**
- * Show informational message (same as error but less alarming)
+ * Show informational message using toast notification
+ * @param {string} message - Info message to display
  */
 function showInfo(message) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.classList.remove('hidden');
+  showToast('Info', message, 'info');
+}
+
+/**
+ * Show success message using toast notification
+ * @param {string} message - Success message to display
+ */
+function showSuccess(message) {
+  showToast('Success', message, 'success');
 }
 
 /**
@@ -1557,11 +1587,14 @@ function handleBackgroundMessage(message) {
       break;
     
     case 'EXPORT_COMPLETE':
-      showExportProgress('✅ Export complete! Downloading...', 100);
-      setTimeout(hideExportProgress, 2000);
+      showExportProgress('Export complete! Download started.', 100);
       break;
     
     case 'EXPORT_ERROR':
+      if (progressToast) {
+        dismissToast(progressToast);
+        progressToast = null;
+      }
       showError(message.error);
       hideExportProgress();
       break;

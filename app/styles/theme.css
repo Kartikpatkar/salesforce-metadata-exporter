@@ -284,26 +284,6 @@ body.dark-theme #export-section {
   border-top-color: #1e293b;
 }
 
-body.dark-theme #status-message {
-  color: #8b9aee;
-}
-
-body.dark-theme progress {
-  background: #1e293b;
-}
-
-body.dark-theme progress::-webkit-progress-bar {
-  background: #1e293b;
-}
-
-/* Dark Theme - Error Messages */
-body.dark-theme .error {
-  color: #fca5a5;
-  background: #450a0a;
-  border-color: #991b1b;
-  box-shadow: 0 4px 12px rgba(153, 27, 27, 0.3);
-}
-
 /* Dark Theme - Modal */
 body.dark-theme .modal-overlay {
   background: rgba(0, 0, 0, 0.8);
