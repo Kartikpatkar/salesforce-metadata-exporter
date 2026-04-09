@@ -82,6 +82,7 @@ class SalesforceConnector {
      * @param {boolean} options.skipCache - Force fresh check, bypass cache
      * @param {boolean} options.currentWindowOnly - Only check tabs in current window
      * @param {number} options.recencyThreshold - Max age of tab in ms (default: 30000)
+     * @param {number} options.priorityTabId - Tab ID to check first (e.g., the tab that opened the popup)
      * @returns {Promise<Object>} Org object with authentication status
      */
     async checkAuth(options = {}) {
@@ -89,14 +90,69 @@ class SalesforceConnector {
             const skipCache = options.skipCache || false;
             const currentWindowOnly = options.currentWindowOnly !== false; // Default true
             const recencyThreshold = options.recencyThreshold || 30000; // 30 seconds
+            const priorityTabId = options.priorityTabId; // Tab to check first
+
+            // IMPORTANT: Skip cache when priorityTabId is provided
+            // This ensures each popup checks its own tab's session instead of using cached session from another tab
+            const shouldSkipCache = skipCache || priorityTabId;
 
             // Return cached org if still fresh and not skipping cache
             const now = Date.now();
-            if (!skipCache && this._cache.org?.isAuthenticated && (now - this._cache.timestamp) < this.cacheTTL) {
+            if (!shouldSkipCache && this._cache.org?.isAuthenticated && (now - this._cache.timestamp) < this.cacheTTL) {
                 return this._cache.org;
             }
 
-            // Check if there's a stored opener tab
+            // PRIORITY: Check the tab that opened the popup first (fixes simultaneous popup issue)
+            if (priorityTabId) {
+                console.log('[SalesforceConnector] Checking priority tab ID:', priorityTabId);
+                try {
+                    const priorityTab = await chrome.tabs.get(priorityTabId);
+                    if (priorityTab && this._isSalesforceUrl(priorityTab.url)) {
+                        const priorityHost = new URL(priorityTab.url).hostname;
+                        if (!this._isLoginOrTestHost(priorityHost)) {
+                            console.log('[SalesforceConnector] Priority tab is Salesforce:', priorityTab.url);
+                            const result = await this._checkTabForSession(priorityTab);
+                            if (result.isAuthenticated) {
+                                console.log('[SalesforceConnector] Found session in priority tab:', result.instanceUrl);
+                                // Update stored openerTabId to this tab
+                                chrome.storage.local.set({ openerTabId: priorityTab.id });
+                                this._cache = { org: result, timestamp: Date.now() };
+                                this._notifyAuthChange(result);
+                                return result;
+                            } else {
+                                console.log('[SalesforceConnector] Priority tab has no valid session');
+                                // IMPORTANT: When a priority tab is specified, only check that tab
+                                // Don't fall back to other tabs or stored openerTabId
+                                // This ensures each popup checks its own tab's session
+                                const notAuthResult = { isAuthenticated: false };
+                                this._cache = { org: notAuthResult, timestamp: Date.now() };
+                                this._notifyAuthChange(notAuthResult);
+                                return notAuthResult;
+                            }
+                        } else {
+                            console.log('[SalesforceConnector] Priority tab is login/test page, not authenticated');
+                            const notAuthResult = { isAuthenticated: false };
+                            this._cache = { org: notAuthResult, timestamp: Date.now() };
+                            this._notifyAuthChange(notAuthResult);
+                            return notAuthResult;
+                        }
+                    } else {
+                        console.log('[SalesforceConnector] Priority tab is not a Salesforce URL');
+                        const notAuthResult = { isAuthenticated: false };
+                        this._cache = { org: notAuthResult, timestamp: Date.now() };
+                        this._notifyAuthChange(notAuthResult);
+                        return notAuthResult;
+                    }
+                } catch (e) {
+                    console.log('[SalesforceConnector] Priority tab check failed:', e.message);
+                    const notAuthResult = { isAuthenticated: false };
+                    this._cache = { org: notAuthResult, timestamp: Date.now() };
+                    this._notifyAuthChange(notAuthResult);
+                    return notAuthResult;
+                }
+            }
+
+            // Check if there's a stored opener tab (fallback)
             const storage = await chrome.storage.local.get(['openerTabId']);
             const openerTabId = storage.openerTabId;
 

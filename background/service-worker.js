@@ -12,7 +12,7 @@
  * 
  * ARCHITECTURE:
  * - Service worker persists only during active operations
- * - Uses chrome.alarms for polling (not setInterval)
+ * - Export status is polled by the UI via GET_EXPORT_STATUS messages
  * - All state stored in chrome.storage (not in-memory variables)
  * 
  * SECURITY:
@@ -74,11 +74,17 @@ self.addEventListener('activate', (event) => {
 
 /**
  * Handle extension icon click - open app in new tab
+ * IMPORTANT: The 'tab' parameter is the tab that was active when icon was clicked
  */
 chrome.action.onClicked.addListener(async (tab) => {
-  console.log('[Service Worker] Extension icon clicked');
+  console.log('[Service Worker] Extension icon clicked from tab:', tab.id, tab.url);
   
   try {
+    // Store the source tab ID (the tab that was active when icon was clicked)
+    // This is needed because the extension opens in a new tab
+    await chrome.storage.local.set({ sourceTabId: tab.id });
+    console.log('[Service Worker] Stored source tab ID:', tab.id);
+    
     // Check if extension page is already open
     const extensionUrl = chrome.runtime.getURL('app/index.html');
     const tabs = await chrome.tabs.query({ url: extensionUrl });
@@ -159,7 +165,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleCheckAuth(payload = {}, sendResponse) {
   try {
     console.log('[Service Worker] Checking Salesforce auth...');
-    const org = await sfConnector.checkAuth(payload);
+    
+    const options = { ...payload };
+    
+    // Get the source tab ID (the tab that was active when extension icon was clicked)
+    const storage = await chrome.storage.local.get(['sourceTabId']);
+    const sourceTabId = storage.sourceTabId;
+    
+    if (sourceTabId) {
+      options.priorityTabId = sourceTabId;
+      console.log('[Service Worker] Using source tab from icon click:', sourceTabId);
+    } else if (payload.currentTabId) {
+      // Fallback to currentTabId if provided
+      options.priorityTabId = payload.currentTabId;
+      console.log('[Service Worker] Using currentTabId from payload:', payload.currentTabId);
+    }
+    
+    const org = await sfConnector.checkAuth(options);
     sendResponse({ success: true, org });
   } catch (error) {
     console.error('[Service Worker] Auth check failed:', error);
@@ -303,10 +325,6 @@ async function handleStartExport(payload, sendResponse) {
       downloaded: false  // Track if already downloaded
     });
     
-    // Don't use alarm polling - let the UI poll via GET_EXPORT_STATUS
-    // This prevents duplicate downloads from race conditions
-    // chrome.alarms.create('pollRetrieveStatus', { periodInMinutes: 5 / 60 }); // 5 seconds
-    
     sendResponse({ success: true, retrieveId });
     
     // Notify popup of progress
@@ -383,119 +401,7 @@ async function clearExportState() {
   console.log('[Service Worker] Cleared export state');
 }
 
-// ========================================
-// POLLING MECHANISM
-// ========================================
-
-/**
- * Handle alarm events for polling retrieve status
- */
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'pollRetrieveStatus') {
-    await pollRetrieveStatus();
-  }
-});
-
-/**
- * Poll Salesforce Metadata API for retrieve status
- * 
- * FLOW:
- * 1. Get current export state from storage
- * 2. Call checkRetrieveStatus API
- * 3. If done, download ZIP and clear alarm
- * 4. If still in progress, continue polling
- * 5. Handle errors and timeouts
- */
-async function pollRetrieveStatus() {
-  try {
-    const state = await getExportState();
-    
-    if (!state || !state.retrieveId) {
-      console.warn('[Service Worker] No active export to poll');
-      chrome.alarms.clear('pollRetrieveStatus');
-      return;
-    }
-    
-    // If already downloaded, stop polling
-    if (state.downloaded) {
-      console.log('[Service Worker] Export already downloaded, stopping poll');
-      chrome.alarms.clear('pollRetrieveStatus');
-      return;
-    }
-    
-    console.log('[Service Worker] Polling retrieve status...', state.retrieveId);
-    
-    const api = new SalesforceMetadataAPI(state.orgInfo);
-    const status = await api.checkRetrieveStatus(state.retrieveId);
-    
-    console.log('[Service Worker] Retrieve status:', status);
-    
-    // Update popup with progress
-    notifyPopup('EXPORT_PROGRESS', { 
-      status: `Retrieve status: ${status.state}`, 
-      progress: status.state === 'InProgress' ? 60 : 90 
-    });
-    
-    // Check if retrieve is complete
-    if (status.done) {
-      // CRITICAL: Clear alarm and mark downloaded FIRST to prevent race condition
-      chrome.alarms.clear('pollRetrieveStatus');
-      state.downloaded = true;
-      await storeExportState(state);
-      
-      if (status.success) {
-        await handleRetrieveComplete(status.zipFile, state);
-      } else {
-        throw new Error(status.errorMessage || 'Retrieve failed');
-      }
-    }
-    
-    // Check for timeout (max 10 minutes)
-    const elapsed = Date.now() - state.startTime;
-    if (elapsed > 10 * 60 * 1000) {
-      chrome.alarms.clear('pollRetrieveStatus');
-      throw new Error('Export timeout - retrieve took longer than 10 minutes');
-    }
-    
-  } catch (error) {
-    console.error('[Service Worker] Polling failed:', error);
-    chrome.alarms.clear('pollRetrieveStatus');
-    await clearExportState();
-    notifyPopup('EXPORT_ERROR', { error: error.message });
-  }
-}
-
-/**
- * Handle successful retrieve completion
- * @param {string} zipFileBase64 - Base64-encoded ZIP file
- * @param {Object} state - Current export state
- */
-async function handleRetrieveComplete(zipFileBase64, state) {
-  try {
-    console.log('[Service Worker] Retrieve complete, processing ZIP...');
-    
-    // Use ZipHandler to process and download ZIP
-    const zipHandler = new ZipHandler();
-    await zipHandler.downloadZip(zipFileBase64, generateFilename(state.orgInfo));
-    
-    await clearExportState();
-    
-    notifyPopup('EXPORT_COMPLETE', { 
-      message: 'Metadata exported successfully' 
-    });
-    
-  } catch (error) {
-    console.error('[Service Worker] Failed to download ZIP:', error);
-    await clearExportState();
-    notifyPopup('EXPORT_ERROR', { error: error.message });
-  }
-}
-
-/**
- * Download ZIP file from base64 data
- * @param {string} zipFileBase64 - Base64-encoded ZIP data
- * @param {Object} state - Export state
- */
+// (Alarm-based polling removed; UI polls export status via GET_EXPORT_STATUS)
 async function downloadZipFile(zipFileBase64, state) {
   try {
     console.log('[Service Worker] Processing ZIP for download...');
@@ -614,7 +520,6 @@ async function handleGetExportStatus(sendResponse) {
  */
 async function handleCancelExport(sendResponse) {
   try {
-    chrome.alarms.clear('pollRetrieveStatus');
     await clearExportState();
     
     console.log('[Service Worker] Export cancelled');

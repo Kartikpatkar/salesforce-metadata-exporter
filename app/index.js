@@ -39,23 +39,23 @@ const elements = {
   orgModal: document.getElementById('org-modal'),
   modalOverlay: document.getElementById('modal-overlay'),
   modalClose: document.getElementById('modal-close'),
+  exportTimeoutMinutesInput: document.getElementById('export-timeout-minutes'),
   
   // Metadata selection
   metadataCheckboxes: document.querySelectorAll('#metadata-types input[type="checkbox"]'),
   metadataSearch: document.getElementById('metadata-search'),
   presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
+  uploadPackageBtn: document.getElementById('upload-package-btn'),
+  packageFileInput: document.getElementById('package-file-input'),
+  pastePackageBtn: document.getElementById('paste-package-btn'),
   
   // Package preview
   togglePreview: document.getElementById('toggle-preview'),
   packagePreview: document.getElementById('package-preview'),
   
   // Export controls
-  exportBtn: document.getElementById('export-btn'),
-  exportStatus: document.getElementById('export-status'),
-  statusMessage: document.getElementById('status-message'),
-  exportProgress: document.getElementById('export-progress'),
-  errorMessage: document.getElementById('error-message')
+  exportBtn: document.getElementById('export-btn')
 };
 
 // ========================================
@@ -71,6 +71,10 @@ let selectedMembers = new Map();
 // Cache for fetched members to avoid repeated API calls
 let membersCache = new Map();
 let exportInProgress = false;
+
+// Export polling settings
+const DEFAULT_EXPORT_TIMEOUT_MINUTES = 30;
+let exportTimeoutMinutes = DEFAULT_EXPORT_TIMEOUT_MINUTES;
 
 // ========================================
 // INITIALIZATION
@@ -91,6 +95,9 @@ async function initializeApp() {
   try {
     // Load theme preference
     loadThemePreference();
+
+    // Load user settings
+    await loadExportTimeoutSetting();
     
     // Check Salesforce authentication via background worker
     await detectSalesforceOrg();
@@ -101,6 +108,37 @@ async function initializeApp() {
   } catch (error) {
     console.error('[App] Failed to initialize:', error);
     showError('Failed to initialize extension.');
+  }
+}
+
+/**
+ * Load export timeout setting from storage and update UI input.
+ */
+async function loadExportTimeoutSetting() {
+  try {
+    const result = await chrome.storage.local.get('exportTimeoutMinutes');
+    const parsed = Number.parseInt(result.exportTimeoutMinutes, 10);
+    exportTimeoutMinutes = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_EXPORT_TIMEOUT_MINUTES;
+
+    if (elements.exportTimeoutMinutesInput) {
+      elements.exportTimeoutMinutesInput.value = String(exportTimeoutMinutes);
+    }
+  } catch (error) {
+    console.error('[App] Failed to load export timeout setting:', error);
+    exportTimeoutMinutes = DEFAULT_EXPORT_TIMEOUT_MINUTES;
+  }
+}
+
+/**
+ * Save export timeout setting to storage.
+ */
+async function saveExportTimeoutSetting(minutes) {
+  exportTimeoutMinutes = minutes;
+  try {
+    await chrome.storage.local.set({ exportTimeoutMinutes: minutes });
+    console.log('[App] Saved export timeout setting:', minutes);
+  } catch (error) {
+    console.error('[App] Failed to save export timeout setting:', error);
   }
 }
 
@@ -140,9 +178,6 @@ async function copyPackageToClipboard() {
   try {
     await navigator.clipboard.writeText(packageXML);
     
-    // Clear any error messages
-    hideError();
-    
     // Visual feedback
     const copyBtn = document.getElementById('copy-package-btn');
     const copyText = copyBtn.querySelector('.copy-text');
@@ -158,6 +193,7 @@ async function copyPackageToClipboard() {
     }, 2000);
     
     console.log('[App] Package.xml copied to clipboard');
+    showSuccess('Package.xml copied to clipboard!');
   } catch (error) {
     console.error('[App] Failed to copy to clipboard:', error);
     showError('Failed to copy to clipboard');
@@ -172,18 +208,25 @@ async function copyPackageToClipboard() {
  * Detect and display Salesforce org information via SalesforceConnector
  * 
  * FLOW:
- * 1. Send CHECK_SF_AUTH message to background worker
- * 2. Background worker uses SalesforceConnector to check auth
- * 3. Update UI with org details
+ * 1. Extension icon clicked from a Salesforce tab
+ * 2. Service worker stores that tab ID as 'sourceTabId'
+ * 3. Service worker opens this extension page in a new tab
+ * 4. This function sends CHECK_SF_AUTH to service worker
+ * 5. Service worker retrieves sourceTabId and checks that tab's session
+ * 6. Update UI with org details from the source tab
  */
 async function detectSalesforceOrg() {
   console.log('[App] Checking Salesforce authentication...');
   
   try {
     // Request auth check from background worker
+    // The service worker will use the sourceTabId (the tab that was active when icon was clicked)
+    // IMPORTANT: Always skipCache when opening popup to ensure fresh check of current tab
     const response = await chrome.runtime.sendMessage({
       type: 'CHECK_SF_AUTH',
-      payload: { skipCache: false }
+      payload: { 
+        skipCache: true // Force fresh check to prevent cached session from different org
+      }
     });
     
     if (response.success && response.org.isAuthenticated) {
@@ -213,7 +256,6 @@ async function loginToProduction() {
     
     if (response.success && response.org.isAuthenticated) {
       displayOrgInfo(response.org);
-      hideError();
     } else {
       showError('Login failed. Please try again.');
     }
@@ -236,7 +278,6 @@ async function loginToSandbox() {
     
     if (response.success && response.org.isAuthenticated) {
       displayOrgInfo(response.org);
-      hideError();
     } else {
       showError('Sandbox login failed. Please try again.');
     }
@@ -256,7 +297,7 @@ async function switchOrg() {
     
     await chrome.runtime.sendMessage({ type: 'SF_SWITCH_ORG' });
     displayOrgInfo(null);
-    showInfo('Session cleared. Please log in again.');
+    showSuccess('Session cleared. Please log in again.');
   } catch (error) {
     console.error('[App] Switch org failed:', error);
     showError('Failed to switch org: ' + error.message);
@@ -590,6 +631,19 @@ function renderMembers(metadataType, members, membersContainer) {
     checkbox.dataset.metadataType = metadataType;
     checkbox.addEventListener('change', (e) => handleMemberSelection(e, metadataType));
     
+    // Check if this member is already selected
+    const selectedMembersList = selectedMembers.get(metadataType);
+    if (selectedMembersList === '*') {
+      // All members selected
+      checkbox.checked = true;
+    } else if (Array.isArray(selectedMembersList) && selectedMembersList.includes(member.fullName)) {
+      // From package.xml upload
+      checkbox.checked = true;
+    } else if (selectedMembersList instanceof Set && selectedMembersList.has(member.fullName)) {
+      // From manual selection
+      checkbox.checked = true;
+    }
+    
     label.appendChild(checkbox);
     label.appendChild(document.createTextNode(member.fullName));
     membersList.appendChild(label);
@@ -612,6 +666,14 @@ async function loadSavedSelections() {
     
     if (result.selectedMetadataTypes) {
       selectedMetadataTypes = new Set(result.selectedMetadataTypes);
+
+      // Every time the extension opens, default selected types to wildcard members.
+      // This prevents a state where types appear selected but the preview/export
+      // logic has no member selection context.
+      selectedMembers.clear();
+      selectedMetadataTypes.forEach(type => {
+        selectedMembers.set(type, '*');
+      });
       
       // Update checkboxes
       elements.metadataCheckboxes.forEach(checkbox => {
@@ -619,8 +681,12 @@ async function loadSavedSelections() {
           checkbox.checked = true;
         }
       });
+
+      // Update member badges for selected types (shows '*')
+      selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
       
       updateExportButtonState();
+      updatePackagePreview();
       console.log('[App] Loaded saved selections:', selectedMetadataTypes);
     }
   } catch (error) {
@@ -683,7 +749,12 @@ function updateMemberCountBadge(metadataType) {
   if (members === '*') {
     badge.textContent = '*';
     badge.classList.remove('hidden');
+  } else if (Array.isArray(members) && members.length > 0) {
+    // From package.xml upload
+    badge.textContent = members.length;
+    badge.classList.remove('hidden');
   } else if (members instanceof Set && members.size > 0) {
+    // From manual selection
     badge.textContent = members.size;
     badge.classList.remove('hidden');
   } else {
@@ -957,6 +1028,203 @@ function clearAllSelections() {
 }
 
 // ========================================
+// PACKAGE.XML UPLOAD
+// ========================================
+
+/**
+ * Handle package.xml file upload
+ * Parses the uploaded file and auto-selects the metadata types and members
+ */
+async function handlePackageUpload(event) {
+  const file = event.target.files[0];
+  
+  if (!file) {
+    return;
+  }
+  
+  console.log('[App] Uploaded file:', file.name, file.size, 'bytes');
+  
+  try {
+    // Read file content
+    const fileContent = await readFileAsText(file);
+    
+    // Validate package.xml
+    if (!PackageXMLParser.isValidPackageXML(fileContent)) {
+      showError('Invalid package.xml file. Please upload a valid Salesforce package.xml file.');
+      return;
+    }
+    
+    // Parse package.xml
+    const parsed = PackageXMLParser.parse(fileContent);
+    console.log('[App] Parsed package.xml:', parsed);
+    
+    // Show summary
+    const summary = PackageXMLParser.getSummary(parsed);
+    console.log('[App] Package summary:\n' + summary);
+    
+    // Auto-select metadata types and members
+    await applyPackageSelections(parsed);
+    
+    // Show success message
+    showSuccess(`Package.xml loaded successfully! ${parsed.types.length} metadata types selected.`);
+    
+    // Reset file input so the same file can be uploaded again
+    event.target.value = '';
+    
+  } catch (error) {
+    console.error('[App] Failed to parse package.xml:', error);
+    showError('Failed to parse package.xml: ' + error.message);
+  }
+}
+
+/**
+ * Read file as text
+ * @param {File} file - File object
+ * @returns {Promise<string>} File content as text
+ */
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+}
+
+/**
+ * Handle paste package.xml from clipboard
+ * Reads XML content from clipboard and auto-selects metadata types and members
+ */
+async function handlePastePackage() {
+  try {
+    // Check if clipboard API is available
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      showError('Clipboard access is not supported in this browser.');
+      return;
+    }
+    
+    console.log('[App] Reading package.xml from clipboard...');
+    
+    // Read text from clipboard
+    const clipboardText = await navigator.clipboard.readText();
+    
+    if (!clipboardText || clipboardText.trim() === '') {
+      showError('Clipboard is empty. Please copy package.xml content first.');
+      return;
+    }
+    
+    // Validate package.xml
+    if (!PackageXMLParser.isValidPackageXML(clipboardText)) {
+      showError('Invalid package.xml content. Please copy valid Salesforce package.xml content.');
+      return;
+    }
+    
+    // Parse package.xml
+    const parsed = PackageXMLParser.parse(clipboardText);
+    console.log('[App] Parsed package.xml from clipboard:', parsed);
+    
+    // Show summary
+    const summary = PackageXMLParser.getSummary(parsed);
+    console.log('[App] Package summary:\n' + summary);
+    
+    // Auto-select metadata types and members
+    await applyPackageSelections(parsed);
+    
+    // Show success message
+    showSuccess(`Package.xml pasted successfully! ${parsed.types.length} metadata types selected.`);
+    
+  } catch (error) {
+    console.error('[App] Failed to paste package.xml:', error);
+    
+    // Check for permission denied error
+    if (error.name === 'NotAllowedError') {
+      showError('Clipboard access denied. Please grant permission to access clipboard.');
+    } else {
+      showError('Failed to paste package.xml: ' + error.message);
+    }
+  }
+}
+
+/**
+ * Apply selections from parsed package.xml
+ * @param {Object} parsed - Parsed package.xml result
+ */
+async function applyPackageSelections(parsed) {
+  console.log('[App] Applying package selections...');
+  
+  // Clear current selections
+  clearAllSelections();
+  
+  // Get all available metadata types (checkboxes currently in the DOM)
+  const availableTypes = new Set();
+  const checkboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
+  checkboxes.forEach(checkbox => {
+    availableTypes.add(checkbox.value);
+  });
+  
+  console.log('[App] Available metadata types:', availableTypes.size);
+  
+  let selectedCount = 0;
+  let skippedCount = 0;
+  const skippedTypes = [];
+  
+  parsed.types.forEach(({ name, members }) => {
+    // Check if this metadata type exists in the current org
+    if (!availableTypes.has(name)) {
+      console.warn('[App] Metadata type not available in this org:', name);
+      skippedTypes.push(name);
+      skippedCount++;
+      return;
+    }
+    
+    // Select the metadata type
+    selectedMetadataTypes.add(name);
+    
+    // Find and check the checkbox
+    const checkbox = document.querySelector(`#metadata-types input[value="${name}"]`);
+    if (checkbox) {
+      checkbox.checked = true;
+      selectedCount++;
+    }
+    
+    // Handle members
+    if (members.includes('*')) {
+      // Wildcard - select all members
+      selectedMembers.set(name, '*');
+      console.log(`[App] Selected all members for ${name}`);
+    } else {
+      // Specific members
+      selectedMembers.set(name, members);
+      console.log(`[App] Selected ${members.length} specific members for ${name}:`, members.slice(0, 5));
+    }
+  });
+  
+  console.log(`[App] Applied selections: ${selectedCount} types, skipped ${skippedCount} types`);
+  
+  if (skippedTypes.length > 0) {
+    console.warn('[App] Skipped types (not available in org):', skippedTypes);
+    showInfo(`⚠️ Note: ${skippedCount} metadata types from package.xml are not available in this org.\n\nSkipped: ${skippedTypes.slice(0, 5).join(', ')}${skippedTypes.length > 5 ? '...' : ''}`);
+  }
+  
+  // Update UI
+  updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+  
+  // Expand metadata types with specific members
+  parsed.types.forEach(({ name, members }) => {
+    if (availableTypes.has(name) && !members.includes('*')) {
+      // Find the expand button and trigger expansion to show selected members
+      const expandBtn = document.querySelector(`button[data-metadata-type="${name}"]`);
+      if (expandBtn && !expandBtn.classList.contains('expanded')) {
+        // Auto-expand to show the selected members
+        expandBtn.click();
+      }
+    }
+  });
+}
+
+// ========================================
 // PACKAGE.XML GENERATION
 // ========================================
 
@@ -978,7 +1246,18 @@ function updatePackagePreview() {
     // Build types with members
     const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
       const members = selectedMembers.get(type);
-      const memberArray = members === '*' ? ['*'] : (members instanceof Set ? Array.from(members) : ['*']);
+      
+      // Handle different member formats (wildcard, array, or Set)
+      let memberArray;
+      if (members === '*') {
+        memberArray = ['*'];
+      } else if (Array.isArray(members)) {
+        memberArray = members; // From package.xml upload
+      } else if (members instanceof Set) {
+        memberArray = Array.from(members); // From manual selection
+      } else {
+        memberArray = ['*']; // Default fallback
+      }
       
       console.log(`[App] Type: ${type}, Members:`, memberArray);
       
@@ -1050,7 +1329,18 @@ async function startExport() {
     // Build types with members (same as preview)
     const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
       const members = selectedMembers.get(type);
-      const memberArray = members === '*' ? ['*'] : (members instanceof Set ? Array.from(members) : ['*']);
+      
+      // Handle different member formats (wildcard, array, or Set)
+      let memberArray;
+      if (members === '*') {
+        memberArray = ['*'];
+      } else if (Array.isArray(members)) {
+        memberArray = members; // From package.xml upload
+      } else if (members instanceof Set) {
+        memberArray = Array.from(members); // From manual selection
+      } else {
+        memberArray = ['*']; // Default fallback
+      }
       
       return {
         name: type,
@@ -1080,6 +1370,11 @@ async function startExport() {
     
   } catch (error) {
     console.error('[App] Export failed:', error);
+    // Dismiss progress toast before showing error
+    if (progressToast) {
+      dismissToast(progressToast);
+      progressToast = null;
+    }
     showError(`Export failed: ${error.message}`);
   } finally {
     exportInProgress = false;
@@ -1091,11 +1386,16 @@ async function startExport() {
  * Poll export status until complete
  */
 async function pollExportStatus() {
-  const maxAttempts = 60; // 5 minutes (5 seconds * 60)
+  const pollIntervalMs = 5000;
+  const timeoutMinutes = Number.isFinite(exportTimeoutMinutes) && exportTimeoutMinutes > 0
+    ? exportTimeoutMinutes
+    : DEFAULT_EXPORT_TIMEOUT_MINUTES;
+  const maxAttempts = Math.max(1, Math.ceil((timeoutMinutes * 60 * 1000) / pollIntervalMs));
   let attempts = 0;
+  const startTime = Date.now();
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
     
     const response = await chrome.runtime.sendMessage({
       type: 'GET_EXPORT_STATUS'
@@ -1107,11 +1407,21 @@ async function pollExportStatus() {
     
     const { status, progress, message } = response;
     
-    showExportProgress(message || 'Processing...', progress || 50);
+    // Add elapsed time to progress message for long-running exports
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+    let progressMessage = message || 'Processing...';
+    
+    // Show elapsed time after 1 minute for user awareness
+    if (elapsedSeconds > 60) {
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      progressMessage += ` (${minutes}m ${seconds}s elapsed)`;
+    }
+    
+    showExportProgress(progressMessage, progress || 50);
     
     if (status === 'Succeeded') {
-      showExportProgress('✅ Export complete! Download started.', 100);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      showExportProgress('Export complete! Download started.', 100);
       return;
     }
     
@@ -1122,27 +1432,46 @@ async function pollExportStatus() {
     attempts++;
   }
   
-  throw new Error('Export timed out');
+  const elapsedMinutes = Math.round((Date.now() - startTime) / 60000);
+  throw new Error(`Export timed out after ${elapsedMinutes} minutes. Large orgs may require longer processing time. Please try again or contact support.`);
 }
 
+// Track persistent export progress toast
+let progressToast = null;
+
 /**
- * Show export progress UI
+ * Show export progress via toast notification
  * @param {string} message - Status message to display
  * @param {number} progress - Progress value (0-100)
  */
 function showExportProgress(message, progress = 0) {
-  elements.exportStatus.classList.remove('hidden');
-  elements.statusMessage.textContent = message;
-  elements.exportProgress.value = progress;
+  if (progress === 0) {
+    // Create persistent toast at start
+    progressToast = showToast('Export Progress', message, 'info', true);
+  } else if (progress === 100) {
+    // Update to success and dismiss after delay
+    if (progressToast) {
+      updateToast(progressToast, 'Export Complete', message, 'success');
+      dismissToast(progressToast, 2000);
+      progressToast = null;
+    } else {
+      showSuccess(message);
+    }
+  } else if (progressToast) {
+    // Update the persistent toast with new message
+    updateToast(progressToast, 'Export Progress', message);
+  }
   elements.exportBtn.disabled = true;
-  elements.errorMessage.classList.add('hidden');
 }
 
 /**
- * Hide export progress UI
+ * Hide export progress (reset state)
  */
 function hideExportProgress() {
-  elements.exportStatus.classList.add('hidden');
+  if (progressToast) {
+    dismissToast(progressToast);
+    progressToast = null;
+  }
   updateExportButtonState();
 }
 
@@ -1150,24 +1479,28 @@ function hideExportProgress() {
  * Display error message
  * @param {string} message - Error message to display
  */
-function showError(message) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.classList.remove('hidden');
-}
-
 /**
- * Hide error message
+ * Show error message using toast notification
+ * @param {string} message - Error message to display
  */
-function hideError() {
-  elements.errorMessage.classList.add('hidden');
+function showError(message) {
+  showToast('Error', message, 'error');
 }
 
 /**
- * Show informational message (same as error but less alarming)
+ * Show informational message using toast notification
+ * @param {string} message - Info message to display
  */
 function showInfo(message) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.classList.remove('hidden');
+  showToast('Info', message, 'info');
+}
+
+/**
+ * Show success message using toast notification
+ * @param {string} message - Success message to display
+ */
+function showSuccess(message) {
+  showToast('Success', message, 'success');
 }
 
 /**
@@ -1211,6 +1544,20 @@ function attachEventListeners() {
   if (elements.modalOverlay) {
     elements.modalOverlay.addEventListener('click', closeOrgModal);
   }
+
+  // Settings: Export timeout (minutes)
+  if (elements.exportTimeoutMinutesInput) {
+    elements.exportTimeoutMinutesInput.addEventListener('change', async (e) => {
+      const raw = Number.parseInt(e.target.value, 10);
+      const clamped = Number.isFinite(raw)
+        ? Math.min(240, Math.max(1, raw))
+        : DEFAULT_EXPORT_TIMEOUT_MINUTES;
+
+      e.target.value = String(clamped);
+      await saveExportTimeoutSetting(clamped);
+      showSuccess(`Export timeout set to ${clamped} minute${clamped === 1 ? '' : 's'}.`);
+    });
+  }
   
   // Theme toggle
   if (elements.themeToggle) {
@@ -1248,6 +1595,21 @@ function attachEventListeners() {
     elements.presetClear.addEventListener('click', clearAllSelections);
   }
   
+  // Upload package.xml button
+  if (elements.uploadPackageBtn) {
+    elements.uploadPackageBtn.addEventListener('click', () => {
+      elements.packageFileInput.click();
+    });
+  }
+  if (elements.packageFileInput) {
+    elements.packageFileInput.addEventListener('change', handlePackageUpload);
+  }
+  
+  // Paste package.xml from clipboard button
+  if (elements.pastePackageBtn) {
+    elements.pastePackageBtn.addEventListener('click', handlePastePackage);
+  }
+  
   // Package preview toggle
   if (elements.togglePreview) {
     elements.togglePreview.addEventListener('click', togglePreview);
@@ -1282,11 +1644,14 @@ function handleBackgroundMessage(message) {
       break;
     
     case 'EXPORT_COMPLETE':
-      showExportProgress('✅ Export complete! Downloading...', 100);
-      setTimeout(hideExportProgress, 2000);
+      showExportProgress('Export complete! Download started.', 100);
       break;
     
     case 'EXPORT_ERROR':
+      if (progressToast) {
+        dismissToast(progressToast);
+        progressToast = null;
+      }
       showError(message.error);
       hideExportProgress();
       break;

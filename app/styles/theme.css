@@ -9,11 +9,11 @@
 }
 
 body.dark-theme #theme-toggle .sun-icon {
-  display: none;
+  display: none !important;
 }
 
 body.dark-theme #theme-toggle .moon-icon {
-  display: block;
+  display: block !important;
 }
 
 /* Dark Theme - Body & Container */
@@ -34,11 +34,13 @@ body.dark-theme header {
 body.dark-theme .profile-btn {
   border-color: rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
 }
 
 body.dark-theme .profile-btn:hover {
   background: rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
 }
 
 /* Dark Theme - Cards */
@@ -133,8 +135,20 @@ body.dark-theme .member-search {
   color: #e2e8f0;
 }
 
+body.dark-theme .settings-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
 body.dark-theme .metadata-search:focus,
 body.dark-theme .member-search:focus {
+  background: #1e293b;
+  border-color: #8b9aee;
+  box-shadow: 0 0 0 3px rgba(139, 154, 238, 0.2);
+}
+
+body.dark-theme .settings-input:focus {
   background: #1e293b;
   border-color: #8b9aee;
   box-shadow: 0 0 0 3px rgba(139, 154, 238, 0.2);
@@ -143,6 +157,10 @@ body.dark-theme .member-search:focus {
 body.dark-theme .metadata-search::placeholder,
 body.dark-theme .member-search::placeholder {
   color: #64748b;
+}
+
+body.dark-theme .settings-hint {
+  color: #94a3b8;
 }
 
 body.dark-theme .clear-search-btn {
@@ -280,26 +298,6 @@ body.dark-theme #package-preview::-webkit-scrollbar-thumb:hover {
 /* Dark Theme - Export Section */
 body.dark-theme #export-section {
   border-top-color: #1e293b;
-}
-
-body.dark-theme #status-message {
-  color: #8b9aee;
-}
-
-body.dark-theme progress {
-  background: #1e293b;
-}
-
-body.dark-theme progress::-webkit-progress-bar {
-  background: #1e293b;
-}
-
-/* Dark Theme - Error Messages */
-body.dark-theme .error {
-  color: #fca5a5;
-  background: #450a0a;
-  border-color: #991b1b;
-  box-shadow: 0 4px 12px rgba(153, 27, 27, 0.3);
 }
 
 /* Dark Theme - Modal */
