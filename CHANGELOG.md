@@ -5,6 +5,25 @@ All notable changes to the Salesforce Metadata Exporter will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Toast notifications** - Replaced alert-style messages with top-right toast notifications for info/success/error feedback
+- **Persistent export progress toast** - Export progress now stays visible while in progress, with the message updating as polling continues
+- **Export timeout setting** - Added an "Export Timeout (Minutes)" setting in the org/profile modal (defaults to 30, configurable)
+- **SVG icon sprite** - Extracted inline SVGs into a shared sprite (`app/assets/icons.svg`) and referenced them via `<use>` for a more modular UI
+
+### Changed
+- **Export progress UI** - Removed the inline export status/progress section and moved progress messaging entirely to toasts
+- **Startup selection behavior** - On extension open, restored metadata type selections default to wildcard members (`*`) so package preview/export always has a valid member selection context
+
+### Fixed
+- **Manifest icon mappings** - Corrected icon size mappings so Chrome uses the proper 16/32/48/128 assets
+- **Dark mode theme toggle icon visibility** - Ensured the moon/sun icons display correctly
+- **Member search input visibility** - Fixed member search text color in light mode
+- Removed unused `alarms` permission (export status is polled via UI messages)
+- Removed orphaned export progress/status CSS after migrating to toast-only progress
+
 ## [1.0.2] - 2026-04-08
 
 ### Fixed
@@ -136,7 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `downloads` - Download ZIP files
   - `activeTab` - Detect Salesforce tabs
   - `cookies` - Extract session cookies
-  - `alarms` - Poll export status
+  - Export status polling is performed by the extension UI (no `alarms` permission)
 - **Host Permissions**
   - `*.salesforce.com`
   - `*.force.com`
