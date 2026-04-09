@@ -71,6 +71,43 @@
   color: #a0aec0;
 }
 
+/* Settings Inputs (used in org modal) */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.settings-container {
+  margin-top: 1rem;
+}
+
+.settings-input {
+  width: 120px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f7fafc;
+  color: #2d3748;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.settings-hint {
+  font-size: 0.8125rem;
+  color: #718096;
+  font-weight: 500;
+}
+
 /* Member Search */
 .member-search-container {
   position: relative;

@@ -135,8 +135,20 @@ body.dark-theme .member-search {
   color: #e2e8f0;
 }
 
+body.dark-theme .settings-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
 body.dark-theme .metadata-search:focus,
 body.dark-theme .member-search:focus {
+  background: #1e293b;
+  border-color: #8b9aee;
+  box-shadow: 0 0 0 3px rgba(139, 154, 238, 0.2);
+}
+
+body.dark-theme .settings-input:focus {
   background: #1e293b;
   border-color: #8b9aee;
   box-shadow: 0 0 0 3px rgba(139, 154, 238, 0.2);
@@ -145,6 +157,10 @@ body.dark-theme .member-search:focus {
 body.dark-theme .metadata-search::placeholder,
 body.dark-theme .member-search::placeholder {
   color: #64748b;
+}
+
+body.dark-theme .settings-hint {
+  color: #94a3b8;
 }
 
 body.dark-theme .clear-search-btn {
