@@ -152,11 +152,13 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 ### 🔷 Light Mode
 
-![Light Mode - Editor Page](/screenshots/light-theme.png)
+![Light Mode - Main Page](/screenshots/light-theme-main-page.png)
+
+![Light Mode - Org/Profile Modal](/screenshots/light-theme-profile-page.png)
 
 ### 🌑 Dark Mode
 
-![Dark Mode - Editor Page](/screenshots/dark-theme.png)
+![Dark Mode - Main Page](/screenshots/dark-theme-main-page.png)
 
 ---
 
