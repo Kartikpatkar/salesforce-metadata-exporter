@@ -627,6 +627,14 @@ async function loadSavedSelections() {
     
     if (result.selectedMetadataTypes) {
       selectedMetadataTypes = new Set(result.selectedMetadataTypes);
+
+      // Every time the extension opens, default selected types to wildcard members.
+      // This prevents a state where types appear selected but the preview/export
+      // logic has no member selection context.
+      selectedMembers.clear();
+      selectedMetadataTypes.forEach(type => {
+        selectedMembers.set(type, '*');
+      });
       
       // Update checkboxes
       elements.metadataCheckboxes.forEach(checkbox => {
@@ -634,8 +642,12 @@ async function loadSavedSelections() {
           checkbox.checked = true;
         }
       });
+
+      // Update member badges for selected types (shows '*')
+      selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
       
       updateExportButtonState();
+      updatePackagePreview();
       console.log('[App] Loaded saved selections:', selectedMetadataTypes);
     }
   } catch (error) {
