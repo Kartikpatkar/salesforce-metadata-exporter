@@ -12,7 +12,7 @@
  * 
  * ARCHITECTURE:
  * - Service worker persists only during active operations
- * - Uses chrome.alarms for polling (not setInterval)
+ * - Export status is polled by the UI via GET_EXPORT_STATUS messages
  * - All state stored in chrome.storage (not in-memory variables)
  * 
  * SECURITY:
@@ -325,10 +325,6 @@ async function handleStartExport(payload, sendResponse) {
       downloaded: false  // Track if already downloaded
     });
     
-    // Don't use alarm polling - let the UI poll via GET_EXPORT_STATUS
-    // This prevents duplicate downloads from race conditions
-    // chrome.alarms.create('pollRetrieveStatus', { periodInMinutes: 5 / 60 }); // 5 seconds
-    
     sendResponse({ success: true, retrieveId });
     
     // Notify popup of progress
@@ -405,119 +401,7 @@ async function clearExportState() {
   console.log('[Service Worker] Cleared export state');
 }
 
-// ========================================
-// POLLING MECHANISM
-// ========================================
-
-/**
- * Handle alarm events for polling retrieve status
- */
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'pollRetrieveStatus') {
-    await pollRetrieveStatus();
-  }
-});
-
-/**
- * Poll Salesforce Metadata API for retrieve status
- * 
- * FLOW:
- * 1. Get current export state from storage
- * 2. Call checkRetrieveStatus API
- * 3. If done, download ZIP and clear alarm
- * 4. If still in progress, continue polling
- * 5. Handle errors and timeouts
- */
-async function pollRetrieveStatus() {
-  try {
-    const state = await getExportState();
-    
-    if (!state || !state.retrieveId) {
-      console.warn('[Service Worker] No active export to poll');
-      chrome.alarms.clear('pollRetrieveStatus');
-      return;
-    }
-    
-    // If already downloaded, stop polling
-    if (state.downloaded) {
-      console.log('[Service Worker] Export already downloaded, stopping poll');
-      chrome.alarms.clear('pollRetrieveStatus');
-      return;
-    }
-    
-    console.log('[Service Worker] Polling retrieve status...', state.retrieveId);
-    
-    const api = new SalesforceMetadataAPI(state.orgInfo);
-    const status = await api.checkRetrieveStatus(state.retrieveId);
-    
-    console.log('[Service Worker] Retrieve status:', status);
-    
-    // Update popup with progress
-    notifyPopup('EXPORT_PROGRESS', { 
-      status: `Retrieve status: ${status.state}`, 
-      progress: status.state === 'InProgress' ? 60 : 90 
-    });
-    
-    // Check if retrieve is complete
-    if (status.done) {
-      // CRITICAL: Clear alarm and mark downloaded FIRST to prevent race condition
-      chrome.alarms.clear('pollRetrieveStatus');
-      state.downloaded = true;
-      await storeExportState(state);
-      
-      if (status.success) {
-        await handleRetrieveComplete(status.zipFile, state);
-      } else {
-        throw new Error(status.errorMessage || 'Retrieve failed');
-      }
-    }
-    
-    // Check for timeout (max 30 minutes for large enterprise orgs)
-    const elapsed = Date.now() - state.startTime;
-    if (elapsed > 30 * 60 * 1000) {
-      chrome.alarms.clear('pollRetrieveStatus');
-      throw new Error('Export timeout - retrieve took longer than 30 minutes');
-    }
-    
-  } catch (error) {
-    console.error('[Service Worker] Polling failed:', error);
-    chrome.alarms.clear('pollRetrieveStatus');
-    await clearExportState();
-    notifyPopup('EXPORT_ERROR', { error: error.message });
-  }
-}
-
-/**
- * Handle successful retrieve completion
- * @param {string} zipFileBase64 - Base64-encoded ZIP file
- * @param {Object} state - Current export state
- */
-async function handleRetrieveComplete(zipFileBase64, state) {
-  try {
-    console.log('[Service Worker] Retrieve complete, processing ZIP...');
-    
-    // Use ZipHandler to process and download ZIP
-    const zipHandler = new ZipHandler();
-    await zipHandler.downloadZip(zipFileBase64, generateFilename(state.orgInfo));
-    
-    await clearExportState();
-    
-    notifyPopup('EXPORT_COMPLETE', { 
-      message: 'Metadata exported successfully' 
-    });
-    
-  } catch (error) {
-    console.error('[Service Worker] Failed to download ZIP:', error);
-    await clearExportState();
-    notifyPopup('EXPORT_ERROR', { error: error.message });
-  }
-}
-
-/**
- * Download ZIP file from base64 data
- * @param {string} zipFileBase64 - Base64-encoded ZIP data
- * @param {Object} state - Export state
- */
+// (Alarm-based polling removed; UI polls export status via GET_EXPORT_STATUS)
 async function downloadZipFile(zipFileBase64, state) {
   try {
     console.log('[Service Worker] Processing ZIP for download...');
@@ -636,7 +520,6 @@ async function handleGetExportStatus(sendResponse) {
  */
 async function handleCancelExport(sendResponse) {
   try {
-    chrome.alarms.clear('pollRetrieveStatus');
     await clearExportState();
     
     console.log('[Service Worker] Export cancelled');

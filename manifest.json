@@ -43,8 +43,7 @@
     "storage",
     "downloads",
     "activeTab",
-    "cookies",
-    "alarms"
+    "cookies"
   ],
 
   "host_permissions": [

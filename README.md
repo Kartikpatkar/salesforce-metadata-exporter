@@ -1,4 +1,4 @@
-# � Salesforce Metadata Exporter – Package XML Generator & Metadata Explorer
+# ⚡ Salesforce Metadata Exporter – Package XML Generator & Metadata Explorer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/Version-1.0.2-blue.svg)](#)
@@ -95,7 +95,8 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
   * Clear All Selections
 * Search within metadata components
 * Visual member count badges
-* Selections persist across sessions using Chrome Storage
+* Selected metadata types persist across sessions using Chrome Storage
+* On extension open, selected types default to **all members** (`*`) for consistent preview/export behavior
 
 ---
 
@@ -118,7 +119,8 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 * Configurable Salesforce **API version** (v59.0)
 * One-click **copy to clipboard** with visual feedback
 * Export metadata as **downloadable ZIP package**
-* Real-time export progress tracking with elapsed time display
+* Export progress shown via a **persistent toast** that stays visible and updates during long exports (includes elapsed time)
+* Export timeout is configurable in the **Org/Profile modal** (default: 30 minutes)
 
 ---
 
@@ -130,7 +132,7 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 * Responsive design
 * **Dark / Light theme toggle** with persistent preferences
 * Clean footer with social links
-* Toast notifications for actions and errors
+* Toast notifications for actions, errors, and export progress (no blocking alert popups)
 * Designed for daily Salesforce development workflows
 * Smooth animations and transitions
 
@@ -242,7 +244,8 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 5. **Export Metadata**
    * Click "Export Metadata as ZIP"
-   * Monitor progress (shows elapsed time for long exports)
+  * Monitor progress in the top-right persistent toast (updates + elapsed time)
+  * Optional: adjust **Export Timeout (Minutes)** in the Org/Profile modal if needed
    * Download completes automatically
 
 ---
@@ -258,8 +261,8 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ✅ Live XML preview with syntax highlighting
 ✅ Copy to clipboard functionality
 ✅ **ZIP export with Metadata API retrieve()**
-✅ Export progress tracking
-✅ Persistent selections (Chrome Storage)
+✅ Export progress tracking via persistent updating toast
+✅ Saved metadata type selections (members default to `*` on open)
 ✅ Dark / light theme toggle
 ✅ Clear search buttons
 ✅ Member count badges
@@ -299,10 +302,10 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 | Permission | Justification |
 |------------|---------------|
-| `storage` | Save user's metadata type selections and theme preference |
+| `storage` | Save user preferences (theme, selections, export timeout) |
 | `downloads` | Trigger ZIP file download |
 | `activeTab` | Access current Salesforce tab for org detection |
-| `tabs` | Query and manage tabs for opening extension |
+| `cookies` | Extract Salesforce session cookies for authenticated API calls |
 | Host permissions (`*.salesforce.com`) | Communicate with Salesforce APIs |
 
 ---

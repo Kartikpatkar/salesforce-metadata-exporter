@@ -39,6 +39,7 @@ const elements = {
   orgModal: document.getElementById('org-modal'),
   modalOverlay: document.getElementById('modal-overlay'),
   modalClose: document.getElementById('modal-close'),
+  exportTimeoutMinutesInput: document.getElementById('export-timeout-minutes'),
   
   // Metadata selection
   metadataCheckboxes: document.querySelectorAll('#metadata-types input[type="checkbox"]'),
@@ -71,6 +72,10 @@ let selectedMembers = new Map();
 let membersCache = new Map();
 let exportInProgress = false;
 
+// Export polling settings
+const DEFAULT_EXPORT_TIMEOUT_MINUTES = 30;
+let exportTimeoutMinutes = DEFAULT_EXPORT_TIMEOUT_MINUTES;
+
 // ========================================
 // INITIALIZATION
 // ========================================
@@ -90,6 +95,9 @@ async function initializeApp() {
   try {
     // Load theme preference
     loadThemePreference();
+
+    // Load user settings
+    await loadExportTimeoutSetting();
     
     // Check Salesforce authentication via background worker
     await detectSalesforceOrg();
@@ -100,6 +108,37 @@ async function initializeApp() {
   } catch (error) {
     console.error('[App] Failed to initialize:', error);
     showError('Failed to initialize extension.');
+  }
+}
+
+/**
+ * Load export timeout setting from storage and update UI input.
+ */
+async function loadExportTimeoutSetting() {
+  try {
+    const result = await chrome.storage.local.get('exportTimeoutMinutes');
+    const parsed = Number.parseInt(result.exportTimeoutMinutes, 10);
+    exportTimeoutMinutes = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_EXPORT_TIMEOUT_MINUTES;
+
+    if (elements.exportTimeoutMinutesInput) {
+      elements.exportTimeoutMinutesInput.value = String(exportTimeoutMinutes);
+    }
+  } catch (error) {
+    console.error('[App] Failed to load export timeout setting:', error);
+    exportTimeoutMinutes = DEFAULT_EXPORT_TIMEOUT_MINUTES;
+  }
+}
+
+/**
+ * Save export timeout setting to storage.
+ */
+async function saveExportTimeoutSetting(minutes) {
+  exportTimeoutMinutes = minutes;
+  try {
+    await chrome.storage.local.set({ exportTimeoutMinutes: minutes });
+    console.log('[App] Saved export timeout setting:', minutes);
+  } catch (error) {
+    console.error('[App] Failed to save export timeout setting:', error);
   }
 }
 
@@ -1347,12 +1386,16 @@ async function startExport() {
  * Poll export status until complete
  */
 async function pollExportStatus() {
-  const maxAttempts = 360; // 30 minutes (5 seconds * 360) - needed for large enterprise orgs
+  const pollIntervalMs = 5000;
+  const timeoutMinutes = Number.isFinite(exportTimeoutMinutes) && exportTimeoutMinutes > 0
+    ? exportTimeoutMinutes
+    : DEFAULT_EXPORT_TIMEOUT_MINUTES;
+  const maxAttempts = Math.max(1, Math.ceil((timeoutMinutes * 60 * 1000) / pollIntervalMs));
   let attempts = 0;
   const startTime = Date.now();
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
     
     const response = await chrome.runtime.sendMessage({
       type: 'GET_EXPORT_STATUS'
@@ -1500,6 +1543,20 @@ function attachEventListeners() {
   }
   if (elements.modalOverlay) {
     elements.modalOverlay.addEventListener('click', closeOrgModal);
+  }
+
+  // Settings: Export timeout (minutes)
+  if (elements.exportTimeoutMinutesInput) {
+    elements.exportTimeoutMinutesInput.addEventListener('change', async (e) => {
+      const raw = Number.parseInt(e.target.value, 10);
+      const clamped = Number.isFinite(raw)
+        ? Math.min(240, Math.max(1, raw))
+        : DEFAULT_EXPORT_TIMEOUT_MINUTES;
+
+      e.target.value = String(clamped);
+      await saveExportTimeoutSetting(clamped);
+      showSuccess(`Export timeout set to ${clamped} minute${clamped === 1 ? '' : 's'}.`);
+    });
   }
   
   // Theme toggle
