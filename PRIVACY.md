@@ -1,6 +1,6 @@
 # 🔒 Privacy Policy – Salesforce Metadata Exporter
 
-*Last updated: January 2026*
+*Last updated: April 2026*
 
 **Salesforce Metadata Exporter** is built with **developer privacy, security, and transparency** as core principles.
 The extension is designed to work **entirely within your browser** and **only with your existing Salesforce session**.
@@ -49,7 +49,7 @@ Important details:
 * ✔ Uses Salesforce session cookies already present in your browser
 * ✔ Does **not** require OAuth setup or connected app configuration
 * ✔ Does **not** store usernames or passwords
-* ✔ Does **not** store session IDs persistently
+* ✔ Session identifiers may be stored **temporarily** during an active export workflow and cleared when the export completes or is cancelled
 * ✔ Does **not** store access tokens or refresh tokens
 * ✔ Does **not** bypass Salesforce security mechanisms
 * ✔ Session extraction happens on-demand only when you use the extension
@@ -66,7 +66,10 @@ The extension uses Chrome's **local storage** only for **non-sensitive preferenc
 * Selected metadata components
 * Salesforce API version preference
 * UI preferences (dark/light theme, layout state)
+* Export timeout preference (minutes)
 * Last connected org information (instance URL, org type)
+
+During an active export, the extension may also store **temporary export state** locally (e.g., retrieve job ID and org context needed to continue polling) and removes it after the export completes or is cancelled.
 
 This data:
 
@@ -101,7 +104,7 @@ Salesforce Metadata Exporter:
 * ❌ Does not execute third-party code from external sources
 * ❌ Does not embed trackers or analytics libraries
 * ❌ Does not use Content Delivery Networks (CDNs) for runtime code
-* ✔ Uses Font Awesome CDN only for UI icons (no tracking)
+* ✔ UI assets (including icons) are bundled with the extension (no external icon CDNs)
 
 All HTML, CSS, JavaScript, and assets are:
 
@@ -124,6 +127,7 @@ Used to store non-sensitive user preferences:
 - Component selections
 - Theme preference (dark/light mode)
 - UI state
+- Export timeout setting
 
 ### **`downloads`**
 
@@ -133,11 +137,11 @@ Used to trigger ZIP file downloads containing exported metadata.
 
 Used to detect the currently active Salesforce org and extract session information.
 
-### **`tabs`**
+### **`cookies`**
 
-Used to manage the extension interface in a new tab.
+Used to read Salesforce session cookies so the extension can authenticate API calls using your existing logged-in session.
 
-### **Host permissions (Salesforce domains: `*.salesforce.com`, `*.force.com`)**
+### **Host permissions (Salesforce domains)**
 
 Used only to:
 
@@ -145,6 +149,15 @@ Used only to:
 * Call Salesforce Tooling API and Metadata API
 * Validate active Salesforce sessions
 * Extract org information
+
+Salesforce domains include (but may not be limited to):
+
+* `*.salesforce.com`, `*.my.salesforce.com`
+* `*.lightning.force.com`
+* `*.visual.force.com`
+* `*.force.com`
+* `*.salesforce-setup.com`, `*.my.salesforce-setup.com`
+* `login.salesforce.com`, `test.salesforce.com`
 
 **No permission is used to:**
 
@@ -186,7 +199,7 @@ The extension **does not retain any data** beyond your active browser session, e
 * User preferences (stored in Chrome local storage)
 * These preferences can be cleared at any time
 
-**Session data (session IDs, access tokens) is never persisted.**
+**Session data is not intended to be retained beyond what is required to complete an active export.** Temporary export state is cleared when the export finishes or is cancelled.
 
 ---
 
@@ -199,7 +212,7 @@ This extension:
 * ❌ Does not use A/B testing services
 * ✔ Only communicates with **Salesforce APIs** that you're already logged into
 
-The only external resource loaded is **Font Awesome CDN** for UI icons, which does not track users.
+The extension does not load remote runtime code (scripts/styles/icons) from third-party CDNs.
 
 ---
 
