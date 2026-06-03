@@ -132,3 +132,241 @@
   background: #fff5f5;
   border-radius: 6px;
 }
+
+/* Search Options Toggle */
+.search-options {
+  display: flex;
+  gap: 1.25rem;
+  margin-top: -0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  align-items: center;
+  padding-left: 0.25rem;
+}
+
+.search-option-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #4a5568;
+  transition: color 0.15s;
+}
+
+.search-option-label input[type="radio"] {
+  accent-color: #667eea;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.search-option-label:hover {
+  color: #2d3748;
+}
+
+.preload-members-btn {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #667eea;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+  text-decoration: underline;
+}
+
+.preload-members-btn:hover {
+  color: #5a67d8;
+  background-color: rgba(102, 126, 234, 0.08);
+}
+
+.preload-members-btn.hidden {
+  display: none !important;
+}
+
+/* Preset Manager */
+.preset-manager-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f7fafc;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e0;
+}
+
+.preset-select-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.preset-dropdown-select {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  background-color: white;
+  color: #2d3748;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.preset-dropdown-select:focus {
+  border-color: #667eea;
+}
+
+.preset-action-btn {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-action-btn.delete {
+  background: rgba(229, 62, 62, 0.1);
+  color: #e53e3e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.preset-action-btn.delete:hover {
+  background: rgba(229, 62, 62, 0.2);
+}
+
+.preset-action-btn.save {
+  width: 100%;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  padding: 0.5rem 0.75rem;
+}
+
+.preset-action-btn.save:hover {
+  background: rgba(102, 126, 234, 0.2);
+}
+
+.preset-name-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.preset-name-input-container.hidden {
+  display: none !important;
+}
+
+.preset-name-input {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  outline: none;
+}
+
+.preset-name-input:focus {
+  border-color: #667eea;
+}
+
+.preset-name-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.preset-confirm-btn, .preset-cancel-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-confirm-btn {
+  background: #48bb78;
+  color: white;
+}
+
+.preset-confirm-btn:hover {
+  background: #38a169;
+}
+
+.preset-cancel-btn {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.preset-cancel-btn:hover {
+  background: #cbd5e0;
+}
+
+/* Member Rows (Destructive changes support) */
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: white;
+  border-radius: 6px;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+
+.member-row:hover {
+  background: #f7fafc;
+}
+
+.member-row.destructive-selected {
+  background: rgba(229, 62, 62, 0.05) !important;
+  border-color: rgba(229, 62, 62, 0.25) !important;
+}
+
+.member-row.retrieve-selected {
+  border-color: rgba(102, 126, 234, 0.2);
+  background: rgba(102, 126, 234, 0.02);
+}
+
+.member-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e0;
+  transition: all 0.15s;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.member-delete-btn:hover {
+  color: #e53e3e;
+  background-color: rgba(229, 62, 62, 0.1);
+}
+
+.member-row.destructive-selected .member-delete-btn {
+  color: #e53e3e;
+}

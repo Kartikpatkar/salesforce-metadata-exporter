@@ -38,3 +38,13 @@
   box-shadow: none;
   opacity: 0.6;
 }
+
+.primary-btn.cancel-btn {
+  background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+  box-shadow: 0 4px 15px rgba(245, 101, 101, 0.4);
+}
+
+.primary-btn.cancel-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fc8181 0%, #e53e3e 100%);
+  box-shadow: 0 8px 25px rgba(245, 101, 101, 0.6);
+}

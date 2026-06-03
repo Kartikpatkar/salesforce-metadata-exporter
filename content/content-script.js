@@ -42,7 +42,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Set up message listener for popup requests
   chrome.runtime.onMessage.addListener(handleMessage);
-}
 
 // ========================================
 // SALESFORCE PAGE DETECTION

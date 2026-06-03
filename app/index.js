@@ -46,6 +46,28 @@ const elements = {
   metadataSearch: document.getElementById('metadata-search'),
   presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
+  presetRefresh: document.getElementById('preset-refresh'),
+  
+  // Presets elements
+  presetToggleManager: document.getElementById('preset-toggle-manager'),
+  presetManagerContainer: document.getElementById('preset-manager-container'),
+  presetDropdown: document.getElementById('preset-dropdown'),
+  deletePresetBtn: document.getElementById('delete-preset-btn'),
+  savePresetBtn: document.getElementById('save-preset-btn'),
+  presetNameInputContainer: document.getElementById('preset-name-input-container'),
+  presetNameInput: document.getElementById('preset-name-input'),
+  presetSaveConfirm: document.getElementById('preset-save-confirm'),
+  presetSaveCancel: document.getElementById('preset-save-cancel'),
+
+  // Search mode elements
+  searchModeTypes: document.getElementById('search-mode-types'),
+  searchModeMembers: document.getElementById('search-mode-members'),
+  preloadMembersBtn: document.getElementById('preload-members-btn'),
+
+  // Profile downsizing elements
+  profileDownsizeEnable: document.getElementById('profile-downsize-enable'),
+  profileDownsizeOptions: document.getElementById('profile-downsize-options'),
+  
   uploadPackageBtn: document.getElementById('upload-package-btn'),
   packageFileInput: document.getElementById('package-file-input'),
   pastePackageBtn: document.getElementById('paste-package-btn'),
@@ -53,9 +75,22 @@ const elements = {
   // Package preview
   togglePreview: document.getElementById('toggle-preview'),
   packagePreview: document.getElementById('package-preview'),
+  tabPackage: document.getElementById('tab-package'),
+  tabDestructive: document.getElementById('tab-destructive'),
+  destructiveInfoBanner: document.getElementById('destructive-info-banner'),
   
   // Export controls
-  exportBtn: document.getElementById('export-btn')
+  exportBtn: document.getElementById('export-btn'),
+  destructiveExportWarning: document.getElementById('destructive-export-warning'),
+  destructiveExportWarningText: document.getElementById('destructive-export-warning-text'),
+  
+  // Destructive confirmation modal
+  destructiveConfirmModal: document.getElementById('destructive-confirm-modal'),
+  destructiveConfirmOverlay: document.getElementById('destructive-confirm-overlay'),
+  destructiveConfirmCount: document.getElementById('destructive-confirm-count'),
+  destructiveConfirmList: document.getElementById('destructive-confirm-list'),
+  destructiveConfirmCancel: document.getElementById('destructive-confirm-cancel'),
+  destructiveConfirmProceed: document.getElementById('destructive-confirm-proceed')
 };
 
 // ========================================
@@ -68,6 +103,11 @@ let selectedMetadataTypes = new Set();
 // Structure: Map<metadataType, Set<memberName> | '*'>
 // '*' means all members (wildcard)
 let selectedMembers = new Map();
+// Store destructive selections per metadata type
+// Structure: Map<metadataType, Set<memberName>>
+let selectedDestructiveMembers = new Map();
+// Active preview tab: 'package' or 'destructive'
+let activePreviewTab = 'package';
 // Cache for fetched members to avoid repeated API calls
 let membersCache = new Map();
 let exportInProgress = false;
@@ -98,6 +138,7 @@ async function initializeApp() {
 
     // Load user settings
     await loadExportTimeoutSetting();
+    await loadProfileDownsizeSettings();
     
     // Check Salesforce authentication via background worker
     await detectSalesforceOrg();
@@ -367,6 +408,9 @@ async function displayOrgInfo(org) {
   
   // Load dynamic metadata types from org
   await loadMetadataTypes();
+  
+  // Load saved presets for this org
+  await loadPresets();
 }
 
 // ========================================
@@ -375,9 +419,10 @@ async function displayOrgInfo(org) {
 
 /**
  * Load available metadata types from the connected org
+ * @param {boolean} forceRefresh - If true, bypass local storage cache
  */
-async function loadMetadataTypes() {
-  console.log('[App] Loading metadata types from org...');
+async function loadMetadataTypes(forceRefresh = false) {
+  console.log(`[App] Loading metadata types from org (forceRefresh: ${forceRefresh})...`);
   
   try {
     // Show loading state
@@ -387,12 +432,15 @@ async function loadMetadataTypes() {
     // Request metadata types from background worker
     const response = await chrome.runtime.sendMessage({
       type: 'GET_METADATA_TYPES',
-      payload: { orgInfo }
+      payload: { orgInfo, forceRefresh }
     });
     
     if (response.success && response.metadataTypes) {
       renderMetadataTypes(response.metadataTypes);
       await loadSavedSelections();
+      if (forceRefresh) {
+        showSuccess('Metadata types refreshed successfully!');
+      }
     } else {
       throw new Error(response.error || 'Failed to load metadata types');
     }
@@ -545,14 +593,17 @@ function filterMembers(metadataType, searchTerm) {
   if (!membersList) return;
   
   const term = searchTerm.toLowerCase().trim();
-  const labels = membersList.querySelectorAll('.member-label');
+  const rows = membersList.querySelectorAll('.member-row');
   
-  labels.forEach(label => {
-    const memberName = label.textContent.toLowerCase();
+  // Fallback to labels if rows don't exist yet
+  const targets = rows.length > 0 ? rows : membersList.querySelectorAll('.member-label');
+  
+  targets.forEach(el => {
+    const memberName = el.textContent.toLowerCase();
     if (memberName.includes(term)) {
-      label.style.display = 'flex';
+      el.style.display = 'flex';
     } else {
-      label.style.display = 'none';
+      el.style.display = 'none';
     }
   });
 }
@@ -621,6 +672,9 @@ function renderMembers(metadataType, members, membersContainer) {
   membersList.id = `members-list-${metadataType}`;
   
   members.forEach(member => {
+    const row = document.createElement('div');
+    row.className = 'member-row';
+    
     const label = document.createElement('label');
     label.className = 'member-label';
     
@@ -631,26 +685,137 @@ function renderMembers(metadataType, members, membersContainer) {
     checkbox.dataset.metadataType = metadataType;
     checkbox.addEventListener('change', (e) => handleMemberSelection(e, metadataType));
     
-    // Check if this member is already selected
+    // Check if this member is already selected for retrieval
     const selectedMembersList = selectedMembers.get(metadataType);
+    let isRetrieveSelected = false;
     if (selectedMembersList === '*') {
-      // All members selected
-      checkbox.checked = true;
+      isRetrieveSelected = true;
     } else if (Array.isArray(selectedMembersList) && selectedMembersList.includes(member.fullName)) {
-      // From package.xml upload
-      checkbox.checked = true;
+      isRetrieveSelected = true;
     } else if (selectedMembersList instanceof Set && selectedMembersList.has(member.fullName)) {
-      // From manual selection
-      checkbox.checked = true;
+      isRetrieveSelected = true;
+    }
+    
+    checkbox.checked = isRetrieveSelected;
+    if (isRetrieveSelected) {
+      row.classList.add('retrieve-selected');
+    }
+    
+    // Check if this member is selected for deletion
+    const destructiveSet = selectedDestructiveMembers.get(metadataType);
+    const isDestructiveSelected = destructiveSet && destructiveSet.has(member.fullName);
+    if (isDestructiveSelected) {
+      row.classList.add('destructive-selected');
     }
     
     label.appendChild(checkbox);
     label.appendChild(document.createTextNode(member.fullName));
-    membersList.appendChild(label);
+    
+    // Create the trash button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'member-delete-btn';
+    deleteBtn.title = 'Mark for deletion (destructiveChanges.xml)';
+    deleteBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    `;
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleMemberDestructiveClick(metadataType, member.fullName, row, checkbox);
+    });
+    
+    row.appendChild(label);
+    row.appendChild(deleteBtn);
+    membersList.appendChild(row);
   });
   
   membersContainer.appendChild(controls);
   membersContainer.appendChild(membersList);
+}
+
+/**
+ * Handle marking a member for deletion
+ */
+function handleMemberDestructiveClick(metadataType, memberName, row, checkbox) {
+  // Auto-select metadata type if not already selected
+  if (!selectedMetadataTypes.has(metadataType)) {
+    selectedMetadataTypes.add(metadataType);
+    const metadataCheckbox = document.querySelector(`input.metadata-type-checkbox[value="${metadataType}"]`);
+    if (metadataCheckbox) {
+      metadataCheckbox.checked = true;
+    }
+  }
+
+  let destructiveSet = selectedDestructiveMembers.get(metadataType);
+  if (!destructiveSet) {
+    destructiveSet = new Set();
+    selectedDestructiveMembers.set(metadataType, destructiveSet);
+  }
+
+  if (destructiveSet.has(memberName)) {
+    // Already destructive, so unselect it completely
+    destructiveSet.delete(memberName);
+    row.classList.remove('destructive-selected');
+    if (destructiveSet.size === 0) {
+      selectedDestructiveMembers.delete(metadataType);
+    }
+  } else {
+    // Select for destruction
+    destructiveSet.add(memberName);
+    row.classList.add('destructive-selected');
+    
+    // Remove from retrieval
+    row.classList.remove('retrieve-selected');
+    checkbox.checked = false;
+    
+    let retrieveSet = selectedMembers.get(metadataType);
+    if (retrieveSet === '*') {
+      const cached = membersCache.get(metadataType) || [];
+      const newSet = new Set(cached.map(m => m.fullName));
+      newSet.delete(memberName);
+      selectedMembers.set(metadataType, newSet);
+    } else if (retrieveSet instanceof Set) {
+      retrieveSet.delete(memberName);
+      if (retrieveSet.size === 0) {
+        selectedMembers.delete(metadataType);
+      }
+    } else if (Array.isArray(retrieveSet)) {
+      const index = retrieveSet.indexOf(memberName);
+      if (index > -1) {
+        retrieveSet.splice(index, 1);
+      }
+      if (retrieveSet.length === 0) {
+        selectedMembers.delete(metadataType);
+      }
+    }
+  }
+
+  // If no members at all (neither retrieve nor destructive) are selected, deselect metadata type
+  const retrieveSet = selectedMembers.get(metadataType);
+  const updatedDestructiveSet = selectedDestructiveMembers.get(metadataType);
+  
+  const hasRetrieve = retrieveSet === '*' || 
+                      (retrieveSet instanceof Set && retrieveSet.size > 0) || 
+                      (Array.isArray(retrieveSet) && retrieveSet.length > 0);
+  const hasDestructive = updatedDestructiveSet instanceof Set && updatedDestructiveSet.size > 0;
+  
+  if (!hasRetrieve && !hasDestructive) {
+    selectedMetadataTypes.delete(metadataType);
+    const metadataCheckbox = document.querySelector(`input.metadata-type-checkbox[value="${metadataType}"]`);
+    if (metadataCheckbox) {
+      metadataCheckbox.checked = false;
+    }
+  }
+
+  updateMemberCountBadge(metadataType);
+  updateExportButtonState();
+  updateDestructiveWarningUI();
+  updatePackagePreview();
+  saveSelections();
 }
 
 // ========================================
@@ -662,33 +827,45 @@ function renderMembers(metadataType, members, membersContainer) {
  */
 async function loadSavedSelections() {
   try {
-    const result = await chrome.storage.local.get('selectedMetadataTypes');
+    const result = await chrome.storage.local.get(['selectedMetadataTypes', 'savedSelectedMembers', 'savedDestructiveMembers']);
     
     if (result.selectedMetadataTypes) {
       selectedMetadataTypes = new Set(result.selectedMetadataTypes);
-
-      // Every time the extension opens, default selected types to wildcard members.
-      // This prevents a state where types appear selected but the preview/export
-      // logic has no member selection context.
-      selectedMembers.clear();
+    }
+    
+    selectedMembers.clear();
+    if (result.savedSelectedMembers) {
+      for (const [type, val] of Object.entries(result.savedSelectedMembers)) {
+        selectedMembers.set(type, Array.isArray(val) ? new Set(val) : val);
+      }
+    } else {
       selectedMetadataTypes.forEach(type => {
         selectedMembers.set(type, '*');
       });
-      
-      // Update checkboxes
-      elements.metadataCheckboxes.forEach(checkbox => {
-        if (selectedMetadataTypes.has(checkbox.value)) {
-          checkbox.checked = true;
-        }
-      });
-
-      // Update member badges for selected types (shows '*')
-      selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
-      
-      updateExportButtonState();
-      updatePackagePreview();
-      console.log('[App] Loaded saved selections:', selectedMetadataTypes);
     }
+    
+    selectedDestructiveMembers.clear();
+    if (result.savedDestructiveMembers) {
+      for (const [type, val] of Object.entries(result.savedDestructiveMembers)) {
+        if (Array.isArray(val) && val.length > 0) {
+          selectedDestructiveMembers.set(type, new Set(val));
+        }
+      }
+    }
+    
+    elements.metadataCheckboxes.forEach(checkbox => {
+      if (selectedMetadataTypes.has(checkbox.value)) {
+        checkbox.checked = true;
+      }
+    });
+
+    selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
+    selectedDestructiveMembers.forEach((val, type) => updateMemberCountBadge(type));
+    
+    updateExportButtonState();
+    updateDestructiveWarningUI();
+    updatePackagePreview();
+    console.log('[App] Loaded saved retrieval & destructive selections.');
   } catch (error) {
     console.error('[App] Failed to load selections:', error);
   }
@@ -699,12 +876,318 @@ async function loadSavedSelections() {
  */
 async function saveSelections() {
   try {
+    const serializedMembers = {};
+    for (const [type, val] of selectedMembers.entries()) {
+      serializedMembers[type] = val instanceof Set ? Array.from(val) : val;
+    }
+    
+    const serializedDestructive = {};
+    for (const [type, val] of selectedDestructiveMembers.entries()) {
+      if (val instanceof Set) {
+        serializedDestructive[type] = Array.from(val);
+      }
+    }
+    
     await chrome.storage.local.set({
-      selectedMetadataTypes: Array.from(selectedMetadataTypes)
+      selectedMetadataTypes: Array.from(selectedMetadataTypes),
+      savedSelectedMembers: serializedMembers,
+      savedDestructiveMembers: serializedDestructive
     });
-    console.log('[App] Saved selections');
+    console.log('[App] Saved selections (including destructive)');
   } catch (error) {
     console.error('[App] Failed to save selections:', error);
+  }
+}
+
+// ========================================
+// PRESETS MANAGER LOGIC
+// ========================================
+
+let currentPresets = {};
+
+/**
+ * Load saved presets for the current org
+ */
+async function loadPresets() {
+  if (!orgInfo || !orgInfo.instanceUrl) return;
+  const key = `metadataPresets_${orgInfo.instanceUrl}`;
+  try {
+    const result = await chrome.storage.local.get(key);
+    currentPresets = result[key] || {};
+    populatePresetDropdown();
+  } catch (error) {
+    console.error('[Presets] Failed to load presets:', error);
+  }
+}
+
+/**
+ * Populate the presets dropdown select options
+ */
+function populatePresetDropdown() {
+  if (!elements.presetDropdown) return;
+  
+  elements.presetDropdown.innerHTML = '<option value="">-- Apply Preset --</option>';
+  
+  Object.keys(currentPresets).sort().forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    elements.presetDropdown.appendChild(option);
+  });
+  
+  if (elements.deletePresetBtn) {
+    elements.deletePresetBtn.style.display = 'none';
+  }
+}
+
+/**
+ * Apply the selected preset checkboxes and member selections
+ */
+async function applyUserPreset(name) {
+  if (!name || !currentPresets[name]) {
+    if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'none';
+    return;
+  }
+  
+  if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'inline-block';
+  const preset = currentPresets[name];
+  
+  // Reset current selection
+  selectedMetadataTypes.clear();
+  selectedMembers.clear();
+  
+  // Clear checkboxes in UI
+  elements.metadataCheckboxes.forEach(checkbox => {
+    checkbox.checked = false;
+    const container = checkbox.closest('.metadata-type-container');
+    const badge = container?.querySelector('.member-count-badge');
+    if (badge) {
+      badge.textContent = '0';
+      badge.classList.add('hidden');
+    }
+    const membersContainer = container?.querySelector('.members-container');
+    if (membersContainer) {
+      membersContainer.innerHTML = '';
+      membersContainer.classList.add('hidden');
+    }
+    const arrow = container?.querySelector('.expand-arrow');
+    if (arrow) arrow.textContent = '▶';
+  });
+  
+  // Apply preset selections
+  const typesToSelect = preset.types || [];
+  typesToSelect.forEach(type => {
+    const checkbox = Array.from(elements.metadataCheckboxes).find(cb => cb.value === type);
+    if (checkbox) {
+      checkbox.checked = true;
+      selectedMetadataTypes.add(type);
+      
+      const members = preset.members?.[type] || '*';
+      if (members === '*') {
+        selectedMembers.set(type, '*');
+      } else if (Array.isArray(members)) {
+        selectedMembers.set(type, new Set(members));
+      } else {
+        selectedMembers.set(type, '*');
+      }
+      
+      updateMemberCountBadge(type);
+      updateRenderedMemberCheckboxes(type);
+    }
+  });
+  
+  // Re-run search/filtering if active
+  filterMetadataTypes();
+  
+  updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+  
+  showSuccess(`Preset "${name}" applied!`);
+}
+
+/**
+ * Update member checkboxes in the DOM if a list is already expanded
+ */
+function updateRenderedMemberCheckboxes(metadataType) {
+  const membersListContainer = document.getElementById(`members-list-${metadataType}`);
+  if (!membersListContainer) return;
+  
+  const checkboxes = membersListContainer.querySelectorAll('.member-checkbox');
+  const selection = selectedMembers.get(metadataType);
+  
+  checkboxes.forEach(cb => {
+    if (selection === '*') {
+      cb.checked = true;
+    } else if (selection instanceof Set && selection.has(cb.value)) {
+      cb.checked = true;
+    } else if (Array.isArray(selection) && selection.includes(cb.value)) {
+      cb.checked = true;
+    } else {
+      cb.checked = false;
+    }
+  });
+}
+
+/**
+ * Save current selections under a preset name
+ */
+async function saveUserPreset(name) {
+  name = name.trim();
+  if (!name) {
+    showError('Preset name cannot be empty.');
+    return;
+  }
+  
+  if (selectedMetadataTypes.size === 0) {
+    showError('Select metadata types before saving a preset.');
+    return;
+  }
+  
+  if (!orgInfo || !orgInfo.instanceUrl) {
+    showError('No active Salesforce session.');
+    return;
+  }
+  
+  // Serialize Set values to standard arrays for JSON storage compatibility
+  const serializedMembers = {};
+  for (const [type, selection] of selectedMembers.entries()) {
+    if (selection === '*') {
+      serializedMembers[type] = '*';
+    } else if (selection instanceof Set) {
+      serializedMembers[type] = Array.from(selection);
+    } else if (Array.isArray(selection)) {
+      serializedMembers[type] = selection;
+    }
+  }
+  
+  const newPreset = {
+    types: Array.from(selectedMetadataTypes),
+    members: serializedMembers,
+    createdAt: Date.now()
+  };
+  
+  const key = `metadataPresets_${orgInfo.instanceUrl}`;
+  currentPresets[name] = newPreset;
+  
+  try {
+    await chrome.storage.local.set({ [key]: currentPresets });
+    populatePresetDropdown();
+    if (elements.presetDropdown) elements.presetDropdown.value = name;
+    if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'inline-block';
+    
+    // Hide inline input
+    if (elements.presetNameInputContainer) elements.presetNameInputContainer.classList.add('hidden');
+    if (elements.presetNameInput) elements.presetNameInput.value = '';
+    
+    showSuccess(`Preset "${name}" saved!`);
+  } catch (error) {
+    console.error('[Presets] Failed to save preset:', error);
+    showError('Failed to save preset.');
+  }
+}
+
+/**
+ * Delete the currently selected preset
+ */
+async function deleteUserPreset() {
+  if (!elements.presetDropdown) return;
+  const name = elements.presetDropdown.value;
+  if (!name || !currentPresets[name]) return;
+  
+  if (!confirm(`Are you sure you want to delete the preset "${name}"?`)) {
+    return;
+  }
+  
+  delete currentPresets[name];
+  const key = `metadataPresets_${orgInfo.instanceUrl}`;
+  
+  try {
+    await chrome.storage.local.set({ [key]: currentPresets });
+    populatePresetDropdown();
+    showSuccess(`Preset "${name}" deleted.`);
+  } catch (error) {
+    console.error('[Presets] Failed to delete preset:', error);
+    showError('Failed to delete preset.');
+  }
+}
+
+// ========================================
+// PROFILE DOWNSIZING LOGIC
+// ========================================
+
+/**
+ * Load profile downsizing settings from chrome.storage.local
+ */
+async function loadProfileDownsizeSettings() {
+  try {
+    const result = await chrome.storage.local.get('profileDownsizeSettings');
+    const settings = result.profileDownsizeSettings || {
+      enabled: false,
+      keepClassAccesses: true,
+      keepFieldPermissions: true,
+      keepObjectPermissions: true,
+      keepPageAccesses: true,
+      keepLayoutAssignments: true,
+      keepRecordTypeVisibilities: true,
+      keepTabVisibilities: true,
+      keepUserPermissions: true
+    };
+    
+    if (elements.profileDownsizeEnable) {
+      elements.profileDownsizeEnable.checked = settings.enabled;
+      toggleProfileDownsizeOptions(settings.enabled);
+    }
+    
+    const options = [
+      'classAccesses', 'fieldPermissions', 'objectPermissions', 'pageAccesses',
+      'layoutAssignments', 'recordTypeVisibilities', 'tabVisibilities', 'userPermissions'
+    ];
+    
+    options.forEach(opt => {
+      const el = document.getElementById(`ds-${opt}`);
+      if (el) {
+        el.checked = settings[`keep${opt.charAt(0).toUpperCase() + opt.slice(1)}`] !== false;
+      }
+    });
+  } catch (error) {
+    console.error('[App] Failed to load profile downsize settings:', error);
+  }
+}
+
+/**
+ * Save profile downsizing settings to chrome.storage.local
+ */
+async function saveProfileDownsizeSettings() {
+  try {
+    const settings = {
+      enabled: elements.profileDownsizeEnable ? elements.profileDownsizeEnable.checked : false,
+      keepClassAccesses: document.getElementById('ds-classAccesses')?.checked !== false,
+      keepFieldPermissions: document.getElementById('ds-fieldPermissions')?.checked !== false,
+      keepObjectPermissions: document.getElementById('ds-objectPermissions')?.checked !== false,
+      keepPageAccesses: document.getElementById('ds-pageAccesses')?.checked !== false,
+      keepLayoutAssignments: document.getElementById('ds-layoutAssignments')?.checked !== false,
+      keepRecordTypeVisibilities: document.getElementById('ds-recordTypeVisibilities')?.checked !== false,
+      keepTabVisibilities: document.getElementById('ds-tabVisibilities')?.checked !== false,
+      keepUserPermissions: document.getElementById('ds-userPermissions')?.checked !== false
+    };
+    
+    await chrome.storage.local.set({ profileDownsizeSettings: settings });
+    console.log('[App] Saved profile downsize settings:', settings);
+  } catch (error) {
+    console.error('[App] Failed to save profile downsize settings:', error);
+  }
+}
+
+/**
+ * Toggle the visibility of the profile downsizing options grid
+ */
+function toggleProfileDownsizeOptions(visible) {
+  if (!elements.profileDownsizeOptions) return;
+  if (visible) {
+    elements.profileDownsizeOptions.classList.remove('hidden');
+  } else {
+    elements.profileDownsizeOptions.classList.add('hidden');
   }
 }
 
@@ -745,18 +1228,32 @@ function updateMemberCountBadge(metadataType) {
   if (!badge) return;
   
   const members = selectedMembers.get(metadataType);
+  const destructive = selectedDestructiveMembers.get(metadataType);
+  
+  let textParts = [];
   
   if (members === '*') {
-    badge.textContent = '*';
-    badge.classList.remove('hidden');
+    textParts.push('*');
   } else if (Array.isArray(members) && members.length > 0) {
-    // From package.xml upload
-    badge.textContent = members.length;
-    badge.classList.remove('hidden');
+    textParts.push(`${members.length} (+)`);
   } else if (members instanceof Set && members.size > 0) {
-    // From manual selection
-    badge.textContent = members.size;
+    textParts.push(`${members.size} (+)`);
+  }
+  
+  if (destructive instanceof Set && destructive.size > 0) {
+    textParts.push(`${destructive.size} (-)`);
+  }
+  
+  if (textParts.length > 0) {
+    badge.textContent = textParts.join(', ');
     badge.classList.remove('hidden');
+    
+    // Style badge color: red if only destructive, default purple/green otherwise
+    if (destructive instanceof Set && destructive.size > 0 && (!members || (members instanceof Set && members.size === 0))) {
+      badge.style.background = '#e53e3e';
+    } else {
+      badge.style.background = '';
+    }
   } else {
     badge.classList.add('hidden');
   }
@@ -795,8 +1292,31 @@ function handleMemberSelection(event, metadataType) {
   
   if (checkbox.checked) {
     members.add(memberName);
+    // When checking for retrieval, clear any destructive mark on this member
+    const destructiveSet = selectedDestructiveMembers.get(metadataType);
+    if (destructiveSet && destructiveSet.has(memberName)) {
+      destructiveSet.delete(memberName);
+      if (destructiveSet.size === 0) {
+        selectedDestructiveMembers.delete(metadataType);
+      }
+    }
   } else {
     members.delete(memberName);
+  }
+  
+  // Sync row CSS classes for this member
+  const membersList = document.getElementById(`members-list-${metadataType}`);
+  if (membersList) {
+    const rows = membersList.querySelectorAll('.member-row');
+    rows.forEach(row => {
+      const cb = row.querySelector('.member-checkbox');
+      if (cb && cb.value === memberName) {
+        const destructiveSet = selectedDestructiveMembers.get(metadataType);
+        const isDestructive = destructiveSet && destructiveSet.has(memberName);
+        row.classList.toggle('retrieve-selected', cb.checked && !isDestructive);
+        row.classList.toggle('destructive-selected', isDestructive);
+      }
+    });
   }
   
   // If no members selected, deselect metadata type and remove from map
@@ -828,12 +1348,28 @@ function selectAllMembers(metadataType) {
   const members = new Set();
   checkboxes.forEach(cb => {
     // Only select visible members (not filtered out)
+    const row = cb.closest('.member-row');
     const label = cb.closest('.member-label');
-    if (label && label.style.display !== 'none') {
+    const parentVisible = row ? row.style.display !== 'none' : (label && label.style.display !== 'none');
+    if (parentVisible) {
       cb.checked = true;
       members.add(cb.value);
+      // Clear any destructive mark and set retrieve-selected on the row
+      if (row) {
+        row.classList.remove('destructive-selected');
+        row.classList.add('retrieve-selected');
+      }
     }
   });
+  
+  // Remove destructive selections that now overlap with retrieve selections
+  const destructiveSet = selectedDestructiveMembers.get(metadataType);
+  if (destructiveSet) {
+    members.forEach(name => destructiveSet.delete(name));
+    if (destructiveSet.size === 0) {
+      selectedDestructiveMembers.delete(metadataType);
+    }
+  }
   
   selectedMembers.set(metadataType, members);
   updateMemberCountBadge(metadataType);
@@ -850,10 +1386,19 @@ function clearMembers(metadataType) {
   
   checkboxes.forEach(cb => {
     cb.checked = false;
+    const row = cb.closest('.member-row');
+    if (row) {
+      row.classList.remove('retrieve-selected');
+      row.classList.remove('destructive-selected');
+    }
   });
   
-  selectedMembers.set(metadataType, '*');
+  // Also clear destructive selections for this type
+  selectedDestructiveMembers.delete(metadataType);
+  selectedMembers.delete(metadataType);
+  
   updateMemberCountBadge(metadataType);
+  updateDestructiveWarningUI();
   updatePackagePreview();
   saveSelections();
 }
@@ -910,20 +1455,159 @@ function applyPreset(presetName) {
  */
 function filterMetadataTypes() {
   const searchTerm = elements.metadataSearch.value.toLowerCase().trim();
+  const searchMode = elements.searchModeMembers && elements.searchModeMembers.checked ? 'members' : 'types';
+  
   const metadataContainer = document.getElementById('metadata-types');
   const containers = metadataContainer.querySelectorAll('.metadata-type-container');
   
+  if (elements.preloadMembersBtn) {
+    if (searchMode === 'members' && searchTerm.length > 0) {
+      elements.preloadMembersBtn.classList.remove('hidden');
+    } else {
+      elements.preloadMembersBtn.classList.add('hidden');
+    }
+  }
+
   containers.forEach(container => {
     const typeNameElement = container.querySelector('.metadata-type-name');
-    if (typeNameElement) {
-      const metadataTypeName = typeNameElement.textContent.toLowerCase();
-      if (metadataTypeName.includes(searchTerm)) {
-        container.style.display = 'block';
+    if (!typeNameElement) return;
+    
+    const metadataTypeName = typeNameElement.textContent;
+    const metadataTypeNameLower = metadataTypeName.toLowerCase();
+    
+    const membersContainer = container.querySelector('.members-container');
+    const arrow = container.querySelector('.expand-arrow');
+    
+    if (searchMode === 'types' || !searchTerm) {
+      const match = metadataTypeNameLower.includes(searchTerm);
+      container.style.display = match ? 'block' : 'none';
+      
+      if (!searchTerm && membersContainer && arrow) {
+        const membersList = container.querySelector('.members-list');
+        if (membersList) {
+          const labels = membersList.querySelectorAll('.member-label');
+          labels.forEach(lbl => lbl.style.display = 'flex');
+          const mSearch = container.querySelector('.member-search');
+          if (mSearch) mSearch.value = '';
+          const mClear = container.querySelector('.clear-search-btn');
+          if (mClear) mClear.classList.add('hidden');
+        }
+      }
+    } else {
+      const cachedMembers = membersCache.get(metadataTypeName);
+      
+      if (cachedMembers) {
+        const matchingMembers = cachedMembers.filter(m => m.fullName.toLowerCase().includes(searchTerm));
+        
+        if (matchingMembers.length > 0) {
+          container.style.display = 'block';
+          
+          if (membersContainer && membersContainer.classList.contains('hidden')) {
+            membersContainer.classList.remove('hidden');
+            if (arrow) arrow.textContent = '▼';
+          }
+          
+          if (membersContainer && membersContainer.innerHTML === '') {
+            renderMembers(metadataTypeName, cachedMembers, membersContainer);
+          }
+          
+          filterMembers(metadataTypeName, searchTerm);
+          
+          const mSearch = container.querySelector('.member-search');
+          if (mSearch) {
+            mSearch.value = searchTerm;
+            toggleMemberClearButton(metadataTypeName);
+          }
+        } else {
+          container.style.display = 'none';
+        }
       } else {
-        container.style.display = 'none';
+        if (metadataTypeNameLower.includes(searchTerm)) {
+          container.style.display = 'block';
+        } else {
+          container.style.display = 'none';
+        }
       }
     }
   });
+}
+
+let preloadingMembers = false;
+
+/**
+ * Preload all members across all metadata types to enable complete global search
+ */
+async function preloadAllMembers() {
+  if (preloadingMembers) return;
+  preloadingMembers = true;
+  
+  if (elements.preloadMembersBtn) {
+    elements.preloadMembersBtn.textContent = 'Loading...';
+    elements.preloadMembersBtn.disabled = true;
+  }
+  
+  showInfo('Preloading all metadata components to enable global search. This may take a moment...');
+  
+  try {
+    const metadataContainer = document.getElementById('metadata-types');
+    const containers = metadataContainer.querySelectorAll('.metadata-type-container');
+    
+    const batchSize = 5;
+    const typesToLoad = [];
+    
+    containers.forEach(container => {
+      const typeNameElement = container.querySelector('.metadata-type-name');
+      if (typeNameElement) {
+        const typeName = typeNameElement.textContent;
+        if (!membersCache.has(typeName)) {
+          typesToLoad.push(typeName);
+        }
+      }
+    });
+    
+    let completed = 0;
+    for (let i = 0; i < typesToLoad.length; i += batchSize) {
+      const batch = typesToLoad.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (typeName) => {
+        try {
+          const response = await chrome.runtime.sendMessage({
+            type: 'GET_METADATA_MEMBERS',
+            payload: { orgInfo, metadataType: typeName }
+          });
+          if (response.success && response.members) {
+            membersCache.set(typeName, response.members);
+            
+            const container = Array.from(containers).find(c => c.querySelector('.metadata-type-name')?.textContent === typeName);
+            const badge = container?.querySelector('.member-count-badge');
+            if (badge) {
+              badge.textContent = response.members.length;
+              badge.classList.remove('hidden');
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to preload ${typeName}:`, err);
+        }
+      }));
+      completed += batch.length;
+      if (elements.preloadMembersBtn) {
+        elements.preloadMembersBtn.textContent = `Loading (${Math.round((completed / typesToLoad.length) * 100)}%)`;
+      }
+    }
+    
+    filterMetadataTypes();
+    showSuccess('All metadata components preloaded successfully!');
+    
+  } catch (error) {
+    console.error('Error preloading members:', error);
+    showError('Failed to preload all members.');
+  } finally {
+    preloadingMembers = false;
+    if (elements.preloadMembersBtn) {
+      elements.preloadMembersBtn.textContent = 'Preload All';
+      elements.preloadMembersBtn.disabled = false;
+      elements.preloadMembersBtn.classList.add('hidden');
+    }
+  }
 }
 
 /**
@@ -1229,14 +1913,118 @@ async function applyPackageSelections(parsed) {
 // ========================================
 
 /**
- * Update package.xml preview based on selected metadata types
+ * Update the destructive export warning badge above the Export button.
+ * Call this whenever selectedDestructiveMembers changes.
+ */
+function updateDestructiveWarningUI() {
+  if (!elements.destructiveExportWarning || !elements.destructiveExportWarningText) return;
+  
+  let totalCount = 0;
+  selectedDestructiveMembers.forEach(set => {
+    if (set instanceof Set) totalCount += set.size;
+  });
+  
+  if (totalCount > 0) {
+    elements.destructiveExportWarning.classList.remove('hidden');
+    elements.destructiveExportWarningText.innerHTML =
+      `Includes <strong>${totalCount}</strong> member(s) marked for deletion — deploy the ZIP to apply`;
+  } else {
+    elements.destructiveExportWarning.classList.add('hidden');
+  }
+}
+
+/**
+ * Switch between package.xml and destructiveChanges.xml preview tabs
+ * @param {'package'|'destructive'} tab
+ */
+function switchPreviewTab(tab) {
+  activePreviewTab = tab;
+  
+  // Update tab active styles
+  if (elements.tabPackage) {
+    elements.tabPackage.classList.toggle('active', tab === 'package');
+  }
+  if (elements.tabDestructive) {
+    elements.tabDestructive.classList.toggle('active', tab === 'destructive');
+  }
+  
+  // Show/hide the info banner explaining this is export-only
+  if (elements.destructiveInfoBanner) {
+    if (tab === 'destructive') {
+      elements.destructiveInfoBanner.classList.remove('hidden');
+    } else {
+      elements.destructiveInfoBanner.classList.add('hidden');
+    }
+  }
+  
+  updatePackagePreview();
+}
+
+/**
+ * Update package.xml / destructiveChanges.xml preview based on the active tab and selections
  */
 function updatePackagePreview() {
-  console.log('[App] Updating package preview. Selected types:', selectedMetadataTypes.size);
+  console.log('[App] Updating package preview. Tab:', activePreviewTab, 'Selected types:', selectedMetadataTypes.size);
   
+  const previewCode = elements.packagePreview.querySelector('code');
+  
+  if (activePreviewTab === 'destructive') {
+    // --- Destructive changes tab ---
+    if (selectedDestructiveMembers.size === 0 || !orgInfo) {
+      previewCode.textContent = '<!-- No members marked for deletion -->';
+      // Clear stored destructive xml when nothing is selected
+      chrome.storage.local.remove('destructiveChangesXmlContent');
+      return;
+    }
+    
+    try {
+      const generator = new PackageXMLGenerator(orgInfo.apiVersion);
+      
+      const destructiveTypes = [];
+      selectedDestructiveMembers.forEach((memberSet, type) => {
+        if (memberSet instanceof Set && memberSet.size > 0) {
+          destructiveTypes.push({
+            name: type,
+            members: Array.from(memberSet)
+          });
+        }
+      });
+      
+      if (destructiveTypes.length === 0) {
+        previewCode.textContent = '<!-- No members marked for deletion -->';
+        chrome.storage.local.remove('destructiveChangesXmlContent');
+        return;
+      }
+      
+      const destructiveXML = generator.generateWithMembers(destructiveTypes);
+      previewCode.textContent = destructiveXML;
+      
+      // Persist for ZIP injection by the service worker
+      chrome.storage.local.set({ destructiveChangesXmlContent: destructiveXML });
+      console.log('[App] destructiveChanges.xml generated and saved to storage.');
+    } catch (error) {
+      console.error('[App] Failed to generate destructiveChanges.xml:', error);
+      previewCode.textContent = `<!-- Error generating destructiveChanges.xml: ${error.message} -->`;
+    }
+    return;
+  }
+  
+  // --- Package.xml tab (default) ---
   if (selectedMetadataTypes.size === 0 || !orgInfo) {
-    elements.packagePreview.querySelector('code').textContent = 
-      '<!-- Select metadata types to preview package.xml -->';
+    previewCode.textContent = '<!-- Select metadata types to preview package.xml -->';
+    return;
+  }
+  
+  // Collect only types that have retrieve selections
+  const retrieveTypes = Array.from(selectedMetadataTypes).filter(type => {
+    const members = selectedMembers.get(type);
+    return members === '*' ||
+           (members instanceof Set && members.size > 0) ||
+           (Array.isArray(members) && members.length > 0);
+  });
+  
+  if (retrieveTypes.length === 0) {
+    previewCode.textContent = '<!-- No members selected for retrieval. Use the destructiveChanges.xml tab to see deletion manifest. -->';
     return;
   }
   
@@ -1244,7 +2032,7 @@ function updatePackagePreview() {
     const generator = new PackageXMLGenerator(orgInfo.apiVersion);
     
     // Build types with members
-    const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
+    const typesWithMembers = retrieveTypes.map(type => {
       const members = selectedMembers.get(type);
       
       // Handle different member formats (wildcard, array, or Set)
@@ -1268,16 +2056,37 @@ function updatePackagePreview() {
     });
     
     console.log('[App] Generating package.xml for types:', typesWithMembers.length);
-    console.log('[App] Full typesWithMembers:', JSON.stringify(typesWithMembers, null, 2));
     
     const packageXML = generator.generateWithMembers(typesWithMembers);
     
-    elements.packagePreview.querySelector('code').textContent = packageXML;
+    previewCode.textContent = packageXML;
     console.log('[App] Package.xml generated successfully. Length:', packageXML.length);
+    
+    // Persist destructive xml whenever preview updates (in case tab not visited)
+    if (selectedDestructiveMembers.size > 0 && orgInfo) {
+      try {
+        const destructiveGenerator = new PackageXMLGenerator(orgInfo.apiVersion);
+        const destructiveTypes = [];
+        selectedDestructiveMembers.forEach((memberSet, type) => {
+          if (memberSet instanceof Set && memberSet.size > 0) {
+            destructiveTypes.push({ name: type, members: Array.from(memberSet) });
+          }
+        });
+        if (destructiveTypes.length > 0) {
+          const destructiveXML = destructiveGenerator.generateWithMembers(destructiveTypes);
+          chrome.storage.local.set({ destructiveChangesXmlContent: destructiveXML });
+        } else {
+          chrome.storage.local.remove('destructiveChangesXmlContent');
+        }
+      } catch (e) {
+        console.warn('[App] Could not update destructive xml in background:', e);
+      }
+    } else {
+      chrome.storage.local.remove('destructiveChangesXmlContent');
+    }
   } catch (error) {
     console.error('[App] Failed to generate package.xml:', error);
-    elements.packagePreview.querySelector('code').textContent = 
-      `<!-- Error generating package.xml: ${error.message} -->`;
+    previewCode.textContent = `<!-- Error generating package.xml: ${error.message} -->`;
   }
 }
 
@@ -1311,14 +2120,166 @@ function togglePreview() {
  * 4. Poll for retrieve status
  * 5. Download ZIP when ready
  */
+/**
+ * Helper to build progress checklist message for toast notification
+ * @param {string} status - Current status of export
+ * @param {number} elapsedSeconds - Seconds since export started
+ * @returns {string} Formatted checklist string
+ */
+function getChecklistMessage(status, elapsedSeconds) {
+  const timeStr = elapsedSeconds > 0 
+    ? ` (${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s)`
+    : '';
+
+  const types = Array.from(selectedMetadataTypes);
+  const displayLimit = 3;
+  const displayTypes = types.slice(0, displayLimit).join(', ');
+  const remainingCount = types.length - displayLimit;
+  const typesSubtitle = types.length > 0
+    ? `\n\nRetrieving: ${displayTypes}${remainingCount > 0 ? ` and ${remainingCount} more` : ''}`
+    : '';
+
+  let step1 = '✓ Prepared package.xml';
+  let step2 = '✓ Initiated retrieve request';
+  let step3 = '○ Compiling & packaging metadata';
+  let step4 = '○ Downloading ZIP file';
+
+  if (status === 'Preparing') {
+    step1 = '● Preparing package.xml';
+    step2 = '○ Initiating retrieve request';
+  } else if (status === 'Initiating') {
+    step1 = '✓ Prepared package.xml';
+    step2 = '● Initiating retrieve request';
+  } else if (status === 'Pending') {
+    step3 = `● Queued on Salesforce server${timeStr}`;
+  } else if (status === 'InProgress') {
+    step3 = `● Compiling & packaging metadata${timeStr}`;
+  } else if (status === 'Succeeded') {
+    step3 = '✓ Compiling & packaging metadata';
+    step4 = '✓ Downloaded ZIP file';
+  } else if (status === 'Failed') {
+    step3 = '❌ Failed on Salesforce server';
+  }
+
+  return `${step1}\n${step2}\n${step3}\n${step4}${typesSubtitle}`;
+}
+
+/**
+ * Cancel the active export process
+ */
+async function cancelExport() {
+  try {
+    const confirmed = confirm('Are you sure you want to stop the metadata export?');
+    if (!confirmed) return;
+    
+    showExportProgress('Stopping export...', 50);
+    
+    const response = await chrome.runtime.sendMessage({
+      type: 'CANCEL_EXPORT'
+    });
+    
+    if (response.success) {
+      exportInProgress = false;
+      elements.exportBtn.innerHTML = '🚀 Export Metadata';
+      elements.exportBtn.classList.remove('cancel-btn');
+      hideExportProgress();
+      showSuccess('Export stopped by user.');
+    } else {
+      throw new Error(response.error || 'Failed to cancel export');
+    }
+  } catch (error) {
+    console.error('[App] Failed to cancel export:', error);
+    showError('Failed to stop export: ' + error.message);
+  }
+}
+
 async function startExport() {
-  if (exportInProgress || selectedMetadataTypes.size === 0 || !orgInfo) {
+  if (exportInProgress) {
+    await cancelExport();
     return;
   }
   
+  if (selectedMetadataTypes.size === 0 && selectedDestructiveMembers.size === 0) {
+    return;
+  }
+  
+  // If there are destructive members, show confirmation modal first
+  if (selectedDestructiveMembers.size > 0) {
+    showDestructiveConfirmModal();
+    return;
+  }
+  
+  await doStartExport();
+}
+
+/**
+ * Show the destructive export confirmation modal and populate member list
+ */
+function showDestructiveConfirmModal() {
+  if (!elements.destructiveConfirmModal) return;
+  
+  // Count total destructive members
+  let totalCount = 0;
+  selectedDestructiveMembers.forEach(set => {
+    if (set instanceof Set) totalCount += set.size;
+  });
+  
+  // Set the count
+  if (elements.destructiveConfirmCount) {
+    elements.destructiveConfirmCount.textContent = totalCount;
+  }
+  
+  // Populate the member list (capped at 20 for readability)
+  if (elements.destructiveConfirmList) {
+    elements.destructiveConfirmList.innerHTML = '';
+    let shown = 0;
+    const MAX_SHOWN = 20;
+    
+    selectedDestructiveMembers.forEach((memberSet, type) => {
+      if (!(memberSet instanceof Set)) return;
+      memberSet.forEach(name => {
+        if (shown >= MAX_SHOWN) return;
+        const li = document.createElement('li');
+        const badge = document.createElement('span');
+        badge.className = 'list-type-badge';
+        badge.textContent = type;
+        li.appendChild(badge);
+        li.appendChild(document.createTextNode(name));
+        elements.destructiveConfirmList.appendChild(li);
+        shown++;
+      });
+    });
+    
+    if (totalCount > MAX_SHOWN) {
+      const li = document.createElement('li');
+      li.style.fontStyle = 'italic';
+      li.style.color = '#718096';
+      li.textContent = `…and ${totalCount - MAX_SHOWN} more`;
+      elements.destructiveConfirmList.appendChild(li);
+    }
+  }
+  
+  elements.destructiveConfirmModal.classList.remove('hidden');
+}
+
+/**
+ * Hide the destructive export confirmation modal
+ */
+function hideDestructiveConfirmModal() {
+  if (elements.destructiveConfirmModal) {
+    elements.destructiveConfirmModal.classList.add('hidden');
+  }
+}
+
+/**
+ * The actual export logic (called after confirmation if needed)
+ */
+async function doStartExport() {
+  if (!orgInfo) return;
+  
   try {
     exportInProgress = true;
-    showExportProgress('Preparing metadata export...');
+    showExportProgress(getChecklistMessage('Preparing', 0), 0);
     
     // Send message to background service worker to initiate export
     console.log('[App] Starting metadata export...', {
@@ -1363,7 +2324,7 @@ async function startExport() {
     }
     
     console.log('[App] Export initiated:', response.retrieveId);
-    showExportProgress('Export in progress...', 50);
+    showExportProgress(getChecklistMessage('Pending', 0), 20);
     
     // Poll for export status
     await pollExportStatus();
@@ -1375,9 +2336,14 @@ async function startExport() {
       dismissToast(progressToast);
       progressToast = null;
     }
-    showError(`Export failed: ${error.message}`);
+    // Only show error if the user didn't cancel it explicitly
+    if (exportInProgress) {
+      showError(`Export failed: ${error.message}`);
+    }
   } finally {
     exportInProgress = false;
+    elements.exportBtn.innerHTML = '🚀 Export Metadata';
+    elements.exportBtn.classList.remove('cancel-btn');
     hideExportProgress();
   }
 }
@@ -1395,7 +2361,9 @@ async function pollExportStatus() {
   const startTime = Date.now();
   
   while (attempts < maxAttempts) {
+    if (!exportInProgress) return;
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    if (!exportInProgress) return;
     
     const response = await chrome.runtime.sendMessage({
       type: 'GET_EXPORT_STATUS'
@@ -1405,27 +2373,21 @@ async function pollExportStatus() {
       throw new Error(response.error || 'Failed to get export status');
     }
     
-    const { status, progress, message } = response;
+    const { status, progress } = response;
     
     // Add elapsed time to progress message for long-running exports
     const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-    let progressMessage = message || 'Processing...';
-    
-    // Show elapsed time after 1 minute for user awareness
-    if (elapsedSeconds > 60) {
-      const minutes = Math.floor(elapsedSeconds / 60);
-      const seconds = elapsedSeconds % 60;
-      progressMessage += ` (${minutes}m ${seconds}s elapsed)`;
-    }
+    const progressMessage = getChecklistMessage(status, elapsedSeconds);
     
     showExportProgress(progressMessage, progress || 50);
     
     if (status === 'Succeeded') {
-      showExportProgress('Export complete! Download started.', 100);
+      showExportProgress(getChecklistMessage('Succeeded', elapsedSeconds), 100);
       return;
     }
     
     if (status === 'Failed') {
+      showExportProgress(getChecklistMessage('Failed', elapsedSeconds), 100);
       throw new Error('Export failed on server');
     }
     
@@ -1461,7 +2423,16 @@ function showExportProgress(message, progress = 0) {
     // Update the persistent toast with new message
     updateToast(progressToast, 'Export Progress', message);
   }
-  elements.exportBtn.disabled = true;
+  
+  if (progress === 100) {
+    elements.exportBtn.innerHTML = '🚀 Export Metadata';
+    elements.exportBtn.classList.remove('cancel-btn');
+    updateExportButtonState();
+  } else {
+    elements.exportBtn.innerHTML = '❌ Stop Export';
+    elements.exportBtn.classList.add('cancel-btn');
+    elements.exportBtn.disabled = false; // Keep it enabled so user can cancel!
+  }
 }
 
 /**
@@ -1507,9 +2478,10 @@ function showSuccess(message) {
  * Update export button enabled/disabled state
  */
 function updateExportButtonState() {
+  const hasDestructive = selectedDestructiveMembers.size > 0;
   const canExport = 
     orgInfo !== null && 
-    selectedMetadataTypes.size > 0 && 
+    (selectedMetadataTypes.size > 0 || hasDestructive) && 
     !exportInProgress;
   
   elements.exportBtn.disabled = !canExport;
@@ -1580,6 +2552,15 @@ function attachEventListeners() {
     elements.metadataSearch.addEventListener('input', filterMetadataTypes);
     elements.metadataSearch.addEventListener('input', toggleClearButton);
   }
+  if (elements.searchModeTypes) {
+    elements.searchModeTypes.addEventListener('change', filterMetadataTypes);
+  }
+  if (elements.searchModeMembers) {
+    elements.searchModeMembers.addEventListener('change', filterMetadataTypes);
+  }
+  if (elements.preloadMembersBtn) {
+    elements.preloadMembersBtn.addEventListener('click', preloadAllMembers);
+  }
   
   // Clear search button
   const clearMetadataSearchBtn = document.getElementById('clear-metadata-search');
@@ -1594,6 +2575,67 @@ function attachEventListeners() {
   if (elements.presetClear) {
     elements.presetClear.addEventListener('click', clearAllSelections);
   }
+  if (elements.presetRefresh) {
+    elements.presetRefresh.addEventListener('click', () => loadMetadataTypes(true));
+  }
+  
+  if (elements.presetToggleManager) {
+    elements.presetToggleManager.addEventListener('click', () => {
+      if (elements.presetManagerContainer) {
+        elements.presetManagerContainer.classList.toggle('hidden');
+      }
+    });
+  }
+  
+  // Presets Manager listeners
+  if (elements.presetDropdown) {
+    elements.presetDropdown.addEventListener('change', (e) => applyUserPreset(e.target.value));
+  }
+  if (elements.savePresetBtn) {
+    elements.savePresetBtn.addEventListener('click', () => {
+      if (elements.presetNameInputContainer) {
+        elements.presetNameInputContainer.classList.toggle('hidden');
+        if (!elements.presetNameInputContainer.classList.contains('hidden') && elements.presetNameInput) {
+          elements.presetNameInput.focus();
+        }
+      }
+    });
+  }
+  if (elements.presetSaveConfirm) {
+    elements.presetSaveConfirm.addEventListener('click', () => {
+      if (elements.presetNameInput) {
+        saveUserPreset(elements.presetNameInput.value);
+      }
+    });
+  }
+  if (elements.presetSaveCancel) {
+    elements.presetSaveCancel.addEventListener('click', () => {
+      if (elements.presetNameInputContainer) elements.presetNameInputContainer.classList.add('hidden');
+      if (elements.presetNameInput) elements.presetNameInput.value = '';
+    });
+  }
+  if (elements.deletePresetBtn) {
+    elements.deletePresetBtn.addEventListener('click', deleteUserPreset);
+  }
+  
+  // Profile Downsizing Settings listeners
+  if (elements.profileDownsizeEnable) {
+    elements.profileDownsizeEnable.addEventListener('change', (e) => {
+      toggleProfileDownsizeOptions(e.target.checked);
+      saveProfileDownsizeSettings();
+    });
+  }
+  
+  const dsOptions = [
+    'classAccesses', 'fieldPermissions', 'objectPermissions', 'pageAccesses',
+    'layoutAssignments', 'recordTypeVisibilities', 'tabVisibilities', 'userPermissions'
+  ];
+  dsOptions.forEach(opt => {
+    const el = document.getElementById(`ds-${opt}`);
+    if (el) {
+      el.addEventListener('change', saveProfileDownsizeSettings);
+    }
+  });
   
   // Upload package.xml button
   if (elements.uploadPackageBtn) {
@@ -1615,8 +2657,30 @@ function attachEventListeners() {
     elements.togglePreview.addEventListener('click', togglePreview);
   }
   
+  // Preview tab switchers
+  if (elements.tabPackage) {
+    elements.tabPackage.addEventListener('click', () => switchPreviewTab('package'));
+  }
+  if (elements.tabDestructive) {
+    elements.tabDestructive.addEventListener('click', () => switchPreviewTab('destructive'));
+  }
+  
   // Export button
   elements.exportBtn.addEventListener('click', startExport);
+  
+  // Destructive confirmation modal
+  if (elements.destructiveConfirmCancel) {
+    elements.destructiveConfirmCancel.addEventListener('click', hideDestructiveConfirmModal);
+  }
+  if (elements.destructiveConfirmOverlay) {
+    elements.destructiveConfirmOverlay.addEventListener('click', hideDestructiveConfirmModal);
+  }
+  if (elements.destructiveConfirmProceed) {
+    elements.destructiveConfirmProceed.addEventListener('click', async () => {
+      hideDestructiveConfirmModal();
+      await doStartExport();
+    });
+  }
   
   // Listen for messages from background worker (export progress updates, auth changes)
   chrome.runtime.onMessage.addListener(handleBackgroundMessage);
@@ -1640,7 +2704,14 @@ function handleBackgroundMessage(message) {
       break;
     
     case 'EXPORT_PROGRESS':
-      showExportProgress(message.status, message.progress);
+      // Map progress values to checklist status
+      let checklistStatus = 'Pending';
+      if (message.progress <= 10) {
+        checklistStatus = 'Preparing';
+      } else if (message.progress <= 30) {
+        checklistStatus = 'Initiating';
+      }
+      showExportProgress(getChecklistMessage(checklistStatus, 0), message.progress);
       break;
     
     case 'EXPORT_COMPLETE':
@@ -1652,7 +2723,10 @@ function handleBackgroundMessage(message) {
         dismissToast(progressToast);
         progressToast = null;
       }
-      showError(message.error);
+      // Only show error if the user didn't cancel it explicitly
+      if (message.error !== 'Export cancelled by user') {
+        showError(message.error);
+      }
       hideExportProgress();
       break;
     

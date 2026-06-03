@@ -62,10 +62,49 @@
                     </button>
                 </div>
 
+                <!-- Search Mode Toggle -->
+                <div class="search-options">
+                    <label class="search-option-label">
+                        <input type="radio" name="search-mode" id="search-mode-types" value="types" checked> Types
+                    </label>
+                    <label class="search-option-label">
+                        <input type="radio" name="search-mode" id="search-mode-members" value="members"> Components
+                    </label>
+                    <button id="preload-members-btn" class="preload-members-btn hidden" title="Load members for global search">Preload All</button>
+                </div>
+
                 <!-- Quick Actions -->
                 <div id="preset-buttons">
                     <button id="preset-select-all" class="preset-btn">Select All</button>
                     <button id="preset-clear" class="preset-btn secondary">Clear</button>
+                    <button id="preset-refresh" class="preset-btn refresh" title="Refresh metadata types from Salesforce">Refresh</button>
+                    <button id="preset-toggle-manager" class="preset-btn presets" title="Toggle Presets Manager">Presets</button>
+                </div>
+
+                <!-- Presets Manager -->
+                <div id="preset-manager-container" class="preset-manager-container hidden">
+                    <div class="preset-select-row">
+                        <select id="preset-dropdown" class="preset-dropdown-select">
+                            <option value="">-- Apply Preset --</option>
+                        </select>
+                        <button id="delete-preset-btn" class="preset-action-btn delete" title="Delete selected preset" style="display: none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <use href="assets/icons.svg#icon-x"></use>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="preset-save-row">
+                        <button id="save-preset-btn" class="preset-action-btn save" title="Save current selections as a preset">
+                            💾 Save Current Selection
+                        </button>
+                    </div>
+                    <div id="preset-name-input-container" class="preset-name-input-container hidden">
+                        <input type="text" id="preset-name-input" class="preset-name-input" placeholder="Preset name...">
+                        <div class="preset-name-actions">
+                            <button id="preset-save-confirm" class="preset-confirm-btn">Save</button>
+                            <button id="preset-save-cancel" class="preset-cancel-btn">Cancel</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Metadata Type Checkboxes (dynamically populated from org) -->
@@ -79,7 +118,10 @@
             <!-- RIGHT: package.xml Preview (2/3 width) -->
             <section id="package-preview-section" class="card column-right">
                 <div class="preview-header">
-                    <h2>📄 package.xml Preview</h2>
+                    <div class="preview-tabs">
+                        <button id="tab-package" class="preview-tab active">📄 package.xml</button>
+                        <button id="tab-destructive" class="preview-tab">🗑️ destructiveChanges.xml</button>
+                    </div>
                     <div class="preview-actions">
                         <button id="upload-package-btn" class="action-btn" title="Upload package.xml file">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -102,10 +144,26 @@
                     </div>
                     <input type="file" id="package-file-input" accept=".xml,.txt" style="display: none;">
                 </div>
+                <div id="destructive-info-banner" class="destructive-info-banner hidden">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span><strong>Read-only export.</strong> This manifest does <em>not</em> delete anything automatically. To delete these components, deploy the downloaded ZIP using <strong>Salesforce CLI</strong>, <strong>Ant Migration Tool</strong>, or <strong>Workbench</strong>.</span>
+                </div>
                 <pre id="package-preview"><code><!-- Generated package.xml will appear here --></code></pre>
                 
                 <!-- Export Controls -->
                 <div id="export-section">
+                    <div id="destructive-export-warning" class="destructive-export-warning hidden">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <span id="destructive-export-warning-text">Includes <strong>0</strong> member(s) for deletion</span>
+                    </div>
                     <button id="export-btn" class="primary-btn" disabled>
                         🚀 Export Metadata
                     </button>
@@ -209,6 +267,57 @@
                             <span class="settings-hint">Default: 30</span>
                         </div>
                     </div>
+
+                    <!-- Profile & Permission Set Downsizing Settings -->
+                    <div class="org-detail-item settings-container profile-downsize-container">
+                        <strong>Profile & Permission Set Downsizing</strong>
+                        <p class="settings-hint-long">Strip unselected parts of .profile / .permissionset XML files to reduce download sizes and prevent layout conflicts.</p>
+                        <div class="settings-row">
+                            <label class="toggle-checkbox-label">
+                                <input id="profile-downsize-enable" type="checkbox" />
+                                Enable Downsizing
+                            </label>
+                        </div>
+                        <div id="profile-downsize-options" class="profile-downsize-options hidden">
+                            <label class="ds-option-label"><input id="ds-classAccesses" type="checkbox" checked /> Keep Apex Classes</label>
+                            <label class="ds-option-label"><input id="ds-fieldPermissions" type="checkbox" checked /> Keep Fields</label>
+                            <label class="ds-option-label"><input id="ds-objectPermissions" type="checkbox" checked /> Keep Objects</label>
+                            <label class="ds-option-label"><input id="ds-pageAccesses" type="checkbox" checked /> Keep Visualforce</label>
+                            <label class="ds-option-label"><input id="ds-layoutAssignments" type="checkbox" checked /> Keep Layouts</label>
+                            <label class="ds-option-label"><input id="ds-recordTypeVisibilities" type="checkbox" checked /> Keep Record Types</label>
+                            <label class="ds-option-label"><input id="ds-tabVisibilities" type="checkbox" checked /> Keep Tabs</label>
+                            <label class="ds-option-label"><input id="ds-userPermissions" type="checkbox" checked /> Keep User Permissions</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DESTRUCTIVE EXPORT CONFIRMATION MODAL -->
+    <div id="destructive-confirm-modal" class="modal hidden">
+        <div class="modal-overlay" id="destructive-confirm-overlay"></div>
+        <div class="modal-content destructive-confirm-content">
+            <div class="modal-header destructive-modal-header">
+                <div class="destructive-modal-icon">⚠️</div>
+                <h2>Confirm Export with Deletions</h2>
+            </div>
+            <div class="modal-body">
+                <div class="destructive-confirm-info">
+                    <p>Your export package includes <strong id="destructive-confirm-count">0</strong> member(s) marked for deletion:</p>
+                    <ul id="destructive-confirm-list" class="destructive-confirm-list"></ul>
+                    <div class="destructive-confirm-notice">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span>The export itself <strong>does not delete anything</strong>. The downloaded ZIP contains a <code>destructiveChanges.xml</code> manifest. Components are only deleted when you <strong>deploy</strong> that package to a Salesforce org.</span>
+                    </div>
+                </div>
+                <div class="destructive-confirm-actions">
+                    <button id="destructive-confirm-cancel" class="modal-cancel-btn">Cancel</button>
+                    <button id="destructive-confirm-proceed" class="primary-btn destructive-confirm-proceed-btn">📦 Continue Export</button>
                 </div>
             </div>
         </div>

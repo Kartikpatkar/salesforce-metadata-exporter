@@ -205,12 +205,29 @@ async function handleLogin(payload = {}, sendResponse) {
 }
 
 /**
+ * Clear cached metadata types from storage
+ */
+async function cleanMetadataTypesCache() {
+  try {
+    const allStorage = await chrome.storage.local.get(null);
+    const keysToRemove = Object.keys(allStorage).filter(key => key.startsWith('metadataTypesCache_'));
+    if (keysToRemove.length > 0) {
+      await chrome.storage.local.remove(keysToRemove);
+      console.log('[Service Worker] Cleared cached metadata types:', keysToRemove);
+    }
+  } catch (error) {
+    console.error('[Service Worker] Failed to clear metadata types cache:', error);
+  }
+}
+
+/**
  * Handle SF_SWITCH_ORG message - switch Salesforce org
  */
 async function handleSwitchOrg(sendResponse) {
   try {
     console.log('[Service Worker] Switching org...');
     await sfConnector.switchOrg();
+    await cleanMetadataTypesCache();
     sendResponse({ success: true });
   } catch (error) {
     console.error('[Service Worker] Switch org failed:', error);
@@ -225,9 +242,27 @@ async function handleGetMetadataTypes(payload, sendResponse) {
   try {
     console.log('[Service Worker] Fetching metadata types...');
     
-    const { orgInfo } = payload;
+    const { orgInfo, forceRefresh = false } = payload;
     if (!orgInfo || !orgInfo.sessionId) {
       throw new Error('Not authenticated');
+    }
+    
+    const cacheKey = `metadataTypesCache_${orgInfo.instanceUrl}`;
+    
+    if (!forceRefresh) {
+      const cachedData = await chrome.storage.local.get(cacheKey);
+      const cacheEntry = cachedData[cacheKey];
+      
+      if (cacheEntry && cacheEntry.metadataTypes && cacheEntry.timestamp) {
+        const age = Date.now() - cacheEntry.timestamp;
+        const cacheTTL = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (age < cacheTTL) {
+          console.log('[Service Worker] Using cached metadata types for:', orgInfo.instanceUrl);
+          sendResponse({ success: true, metadataTypes: cacheEntry.metadataTypes, fromCache: true });
+          return;
+        }
+      }
     }
     
     // Create API client instance
@@ -239,8 +274,15 @@ async function handleGetMetadataTypes(payload, sendResponse) {
     // Sort alphabetically for better UX
     metadataTypes.sort((a, b) => a.xmlName.localeCompare(b.xmlName));
     
-    console.log('[Service Worker] Retrieved metadata types:', metadataTypes.length);
-    sendResponse({ success: true, metadataTypes });
+    // Store in cache
+    const cacheEntry = {
+      timestamp: Date.now(),
+      metadataTypes: metadataTypes
+    };
+    await chrome.storage.local.set({ [cacheKey]: cacheEntry });
+    console.log('[Service Worker] Cached metadata types for:', orgInfo.instanceUrl);
+    
+    sendResponse({ success: true, metadataTypes, fromCache: false });
     
   } catch (error) {
     console.error('[Service Worker] Get metadata types failed:', error);
@@ -322,7 +364,8 @@ async function handleStartExport(payload, sendResponse) {
       orgInfo,
       status: 'InProgress',
       startTime: Date.now(),
-      downloaded: false  // Track if already downloaded
+      downloaded: false,  // Track if already downloaded
+      selectedTypes: typesWithMembers.map(t => t.name)
     });
     
     sendResponse({ success: true, retrieveId });
@@ -496,9 +539,18 @@ async function handleGetExportStatus(sendResponse) {
     }
     
     const progress = retrieveStatus.done ? 100 : 60;
-    const message = retrieveStatus.done 
-      ? (retrieveStatus.success ? '✅ Export complete!' : '❌ Export failed')
-      : 'Processing metadata...';
+    
+    // Construct dynamic message based on selected types
+    let message = 'Processing metadata...';
+    if (retrieveStatus.done) {
+      message = retrieveStatus.success ? '✅ Export complete!' : '❌ Export failed';
+    } else if (state.selectedTypes && state.selectedTypes.length > 0) {
+      const types = state.selectedTypes;
+      const displayLimit = 3;
+      const displayTypes = types.slice(0, displayLimit).join(', ');
+      const remainingCount = types.length - displayLimit;
+      message = `Processing metadata (${displayTypes}${remainingCount > 0 ? ` and ${remainingCount} more` : ''})...`;
+    }
     
     sendResponse({ 
       success: true, 
