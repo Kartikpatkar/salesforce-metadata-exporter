@@ -317,3 +317,56 @@
 .preset-cancel-btn:hover {
   background: #cbd5e0;
 }
+
+/* Member Rows (Destructive changes support) */
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: white;
+  border-radius: 6px;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+
+.member-row:hover {
+  background: #f7fafc;
+}
+
+.member-row.destructive-selected {
+  background: rgba(229, 62, 62, 0.05) !important;
+  border-color: rgba(229, 62, 62, 0.25) !important;
+}
+
+.member-row.retrieve-selected {
+  border-color: rgba(102, 126, 234, 0.2);
+  background: rgba(102, 126, 234, 0.02);
+}
+
+.member-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e0;
+  transition: all 0.15s;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.member-delete-btn:hover {
+  color: #e53e3e;
+  background-color: rgba(229, 62, 62, 0.1);
+}
+
+.member-row.destructive-selected .member-delete-btn {
+  color: #e53e3e;
+}

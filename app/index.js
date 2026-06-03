@@ -75,9 +75,22 @@ const elements = {
   // Package preview
   togglePreview: document.getElementById('toggle-preview'),
   packagePreview: document.getElementById('package-preview'),
+  tabPackage: document.getElementById('tab-package'),
+  tabDestructive: document.getElementById('tab-destructive'),
+  destructiveInfoBanner: document.getElementById('destructive-info-banner'),
   
   // Export controls
-  exportBtn: document.getElementById('export-btn')
+  exportBtn: document.getElementById('export-btn'),
+  destructiveExportWarning: document.getElementById('destructive-export-warning'),
+  destructiveExportWarningText: document.getElementById('destructive-export-warning-text'),
+  
+  // Destructive confirmation modal
+  destructiveConfirmModal: document.getElementById('destructive-confirm-modal'),
+  destructiveConfirmOverlay: document.getElementById('destructive-confirm-overlay'),
+  destructiveConfirmCount: document.getElementById('destructive-confirm-count'),
+  destructiveConfirmList: document.getElementById('destructive-confirm-list'),
+  destructiveConfirmCancel: document.getElementById('destructive-confirm-cancel'),
+  destructiveConfirmProceed: document.getElementById('destructive-confirm-proceed')
 };
 
 // ========================================
@@ -90,6 +103,11 @@ let selectedMetadataTypes = new Set();
 // Structure: Map<metadataType, Set<memberName> | '*'>
 // '*' means all members (wildcard)
 let selectedMembers = new Map();
+// Store destructive selections per metadata type
+// Structure: Map<metadataType, Set<memberName>>
+let selectedDestructiveMembers = new Map();
+// Active preview tab: 'package' or 'destructive'
+let activePreviewTab = 'package';
 // Cache for fetched members to avoid repeated API calls
 let membersCache = new Map();
 let exportInProgress = false;
@@ -575,14 +593,17 @@ function filterMembers(metadataType, searchTerm) {
   if (!membersList) return;
   
   const term = searchTerm.toLowerCase().trim();
-  const labels = membersList.querySelectorAll('.member-label');
+  const rows = membersList.querySelectorAll('.member-row');
   
-  labels.forEach(label => {
-    const memberName = label.textContent.toLowerCase();
+  // Fallback to labels if rows don't exist yet
+  const targets = rows.length > 0 ? rows : membersList.querySelectorAll('.member-label');
+  
+  targets.forEach(el => {
+    const memberName = el.textContent.toLowerCase();
     if (memberName.includes(term)) {
-      label.style.display = 'flex';
+      el.style.display = 'flex';
     } else {
-      label.style.display = 'none';
+      el.style.display = 'none';
     }
   });
 }
@@ -651,6 +672,9 @@ function renderMembers(metadataType, members, membersContainer) {
   membersList.id = `members-list-${metadataType}`;
   
   members.forEach(member => {
+    const row = document.createElement('div');
+    row.className = 'member-row';
+    
     const label = document.createElement('label');
     label.className = 'member-label';
     
@@ -661,26 +685,137 @@ function renderMembers(metadataType, members, membersContainer) {
     checkbox.dataset.metadataType = metadataType;
     checkbox.addEventListener('change', (e) => handleMemberSelection(e, metadataType));
     
-    // Check if this member is already selected
+    // Check if this member is already selected for retrieval
     const selectedMembersList = selectedMembers.get(metadataType);
+    let isRetrieveSelected = false;
     if (selectedMembersList === '*') {
-      // All members selected
-      checkbox.checked = true;
+      isRetrieveSelected = true;
     } else if (Array.isArray(selectedMembersList) && selectedMembersList.includes(member.fullName)) {
-      // From package.xml upload
-      checkbox.checked = true;
+      isRetrieveSelected = true;
     } else if (selectedMembersList instanceof Set && selectedMembersList.has(member.fullName)) {
-      // From manual selection
-      checkbox.checked = true;
+      isRetrieveSelected = true;
+    }
+    
+    checkbox.checked = isRetrieveSelected;
+    if (isRetrieveSelected) {
+      row.classList.add('retrieve-selected');
+    }
+    
+    // Check if this member is selected for deletion
+    const destructiveSet = selectedDestructiveMembers.get(metadataType);
+    const isDestructiveSelected = destructiveSet && destructiveSet.has(member.fullName);
+    if (isDestructiveSelected) {
+      row.classList.add('destructive-selected');
     }
     
     label.appendChild(checkbox);
     label.appendChild(document.createTextNode(member.fullName));
-    membersList.appendChild(label);
+    
+    // Create the trash button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'member-delete-btn';
+    deleteBtn.title = 'Mark for deletion (destructiveChanges.xml)';
+    deleteBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    `;
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleMemberDestructiveClick(metadataType, member.fullName, row, checkbox);
+    });
+    
+    row.appendChild(label);
+    row.appendChild(deleteBtn);
+    membersList.appendChild(row);
   });
   
   membersContainer.appendChild(controls);
   membersContainer.appendChild(membersList);
+}
+
+/**
+ * Handle marking a member for deletion
+ */
+function handleMemberDestructiveClick(metadataType, memberName, row, checkbox) {
+  // Auto-select metadata type if not already selected
+  if (!selectedMetadataTypes.has(metadataType)) {
+    selectedMetadataTypes.add(metadataType);
+    const metadataCheckbox = document.querySelector(`input.metadata-type-checkbox[value="${metadataType}"]`);
+    if (metadataCheckbox) {
+      metadataCheckbox.checked = true;
+    }
+  }
+
+  let destructiveSet = selectedDestructiveMembers.get(metadataType);
+  if (!destructiveSet) {
+    destructiveSet = new Set();
+    selectedDestructiveMembers.set(metadataType, destructiveSet);
+  }
+
+  if (destructiveSet.has(memberName)) {
+    // Already destructive, so unselect it completely
+    destructiveSet.delete(memberName);
+    row.classList.remove('destructive-selected');
+    if (destructiveSet.size === 0) {
+      selectedDestructiveMembers.delete(metadataType);
+    }
+  } else {
+    // Select for destruction
+    destructiveSet.add(memberName);
+    row.classList.add('destructive-selected');
+    
+    // Remove from retrieval
+    row.classList.remove('retrieve-selected');
+    checkbox.checked = false;
+    
+    let retrieveSet = selectedMembers.get(metadataType);
+    if (retrieveSet === '*') {
+      const cached = membersCache.get(metadataType) || [];
+      const newSet = new Set(cached.map(m => m.fullName));
+      newSet.delete(memberName);
+      selectedMembers.set(metadataType, newSet);
+    } else if (retrieveSet instanceof Set) {
+      retrieveSet.delete(memberName);
+      if (retrieveSet.size === 0) {
+        selectedMembers.delete(metadataType);
+      }
+    } else if (Array.isArray(retrieveSet)) {
+      const index = retrieveSet.indexOf(memberName);
+      if (index > -1) {
+        retrieveSet.splice(index, 1);
+      }
+      if (retrieveSet.length === 0) {
+        selectedMembers.delete(metadataType);
+      }
+    }
+  }
+
+  // If no members at all (neither retrieve nor destructive) are selected, deselect metadata type
+  const retrieveSet = selectedMembers.get(metadataType);
+  const updatedDestructiveSet = selectedDestructiveMembers.get(metadataType);
+  
+  const hasRetrieve = retrieveSet === '*' || 
+                      (retrieveSet instanceof Set && retrieveSet.size > 0) || 
+                      (Array.isArray(retrieveSet) && retrieveSet.length > 0);
+  const hasDestructive = updatedDestructiveSet instanceof Set && updatedDestructiveSet.size > 0;
+  
+  if (!hasRetrieve && !hasDestructive) {
+    selectedMetadataTypes.delete(metadataType);
+    const metadataCheckbox = document.querySelector(`input.metadata-type-checkbox[value="${metadataType}"]`);
+    if (metadataCheckbox) {
+      metadataCheckbox.checked = false;
+    }
+  }
+
+  updateMemberCountBadge(metadataType);
+  updateExportButtonState();
+  updateDestructiveWarningUI();
+  updatePackagePreview();
+  saveSelections();
 }
 
 // ========================================
@@ -692,33 +827,45 @@ function renderMembers(metadataType, members, membersContainer) {
  */
 async function loadSavedSelections() {
   try {
-    const result = await chrome.storage.local.get('selectedMetadataTypes');
+    const result = await chrome.storage.local.get(['selectedMetadataTypes', 'savedSelectedMembers', 'savedDestructiveMembers']);
     
     if (result.selectedMetadataTypes) {
       selectedMetadataTypes = new Set(result.selectedMetadataTypes);
-
-      // Every time the extension opens, default selected types to wildcard members.
-      // This prevents a state where types appear selected but the preview/export
-      // logic has no member selection context.
-      selectedMembers.clear();
+    }
+    
+    selectedMembers.clear();
+    if (result.savedSelectedMembers) {
+      for (const [type, val] of Object.entries(result.savedSelectedMembers)) {
+        selectedMembers.set(type, Array.isArray(val) ? new Set(val) : val);
+      }
+    } else {
       selectedMetadataTypes.forEach(type => {
         selectedMembers.set(type, '*');
       });
-      
-      // Update checkboxes
-      elements.metadataCheckboxes.forEach(checkbox => {
-        if (selectedMetadataTypes.has(checkbox.value)) {
-          checkbox.checked = true;
-        }
-      });
-
-      // Update member badges for selected types (shows '*')
-      selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
-      
-      updateExportButtonState();
-      updatePackagePreview();
-      console.log('[App] Loaded saved selections:', selectedMetadataTypes);
     }
+    
+    selectedDestructiveMembers.clear();
+    if (result.savedDestructiveMembers) {
+      for (const [type, val] of Object.entries(result.savedDestructiveMembers)) {
+        if (Array.isArray(val) && val.length > 0) {
+          selectedDestructiveMembers.set(type, new Set(val));
+        }
+      }
+    }
+    
+    elements.metadataCheckboxes.forEach(checkbox => {
+      if (selectedMetadataTypes.has(checkbox.value)) {
+        checkbox.checked = true;
+      }
+    });
+
+    selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
+    selectedDestructiveMembers.forEach((val, type) => updateMemberCountBadge(type));
+    
+    updateExportButtonState();
+    updateDestructiveWarningUI();
+    updatePackagePreview();
+    console.log('[App] Loaded saved retrieval & destructive selections.');
   } catch (error) {
     console.error('[App] Failed to load selections:', error);
   }
@@ -729,10 +876,24 @@ async function loadSavedSelections() {
  */
 async function saveSelections() {
   try {
+    const serializedMembers = {};
+    for (const [type, val] of selectedMembers.entries()) {
+      serializedMembers[type] = val instanceof Set ? Array.from(val) : val;
+    }
+    
+    const serializedDestructive = {};
+    for (const [type, val] of selectedDestructiveMembers.entries()) {
+      if (val instanceof Set) {
+        serializedDestructive[type] = Array.from(val);
+      }
+    }
+    
     await chrome.storage.local.set({
-      selectedMetadataTypes: Array.from(selectedMetadataTypes)
+      selectedMetadataTypes: Array.from(selectedMetadataTypes),
+      savedSelectedMembers: serializedMembers,
+      savedDestructiveMembers: serializedDestructive
     });
-    console.log('[App] Saved selections');
+    console.log('[App] Saved selections (including destructive)');
   } catch (error) {
     console.error('[App] Failed to save selections:', error);
   }
@@ -1067,18 +1228,32 @@ function updateMemberCountBadge(metadataType) {
   if (!badge) return;
   
   const members = selectedMembers.get(metadataType);
+  const destructive = selectedDestructiveMembers.get(metadataType);
+  
+  let textParts = [];
   
   if (members === '*') {
-    badge.textContent = '*';
-    badge.classList.remove('hidden');
+    textParts.push('*');
   } else if (Array.isArray(members) && members.length > 0) {
-    // From package.xml upload
-    badge.textContent = members.length;
-    badge.classList.remove('hidden');
+    textParts.push(`${members.length} (+)`);
   } else if (members instanceof Set && members.size > 0) {
-    // From manual selection
-    badge.textContent = members.size;
+    textParts.push(`${members.size} (+)`);
+  }
+  
+  if (destructive instanceof Set && destructive.size > 0) {
+    textParts.push(`${destructive.size} (-)`);
+  }
+  
+  if (textParts.length > 0) {
+    badge.textContent = textParts.join(', ');
     badge.classList.remove('hidden');
+    
+    // Style badge color: red if only destructive, default purple/green otherwise
+    if (destructive instanceof Set && destructive.size > 0 && (!members || (members instanceof Set && members.size === 0))) {
+      badge.style.background = '#e53e3e';
+    } else {
+      badge.style.background = '';
+    }
   } else {
     badge.classList.add('hidden');
   }
@@ -1117,8 +1292,31 @@ function handleMemberSelection(event, metadataType) {
   
   if (checkbox.checked) {
     members.add(memberName);
+    // When checking for retrieval, clear any destructive mark on this member
+    const destructiveSet = selectedDestructiveMembers.get(metadataType);
+    if (destructiveSet && destructiveSet.has(memberName)) {
+      destructiveSet.delete(memberName);
+      if (destructiveSet.size === 0) {
+        selectedDestructiveMembers.delete(metadataType);
+      }
+    }
   } else {
     members.delete(memberName);
+  }
+  
+  // Sync row CSS classes for this member
+  const membersList = document.getElementById(`members-list-${metadataType}`);
+  if (membersList) {
+    const rows = membersList.querySelectorAll('.member-row');
+    rows.forEach(row => {
+      const cb = row.querySelector('.member-checkbox');
+      if (cb && cb.value === memberName) {
+        const destructiveSet = selectedDestructiveMembers.get(metadataType);
+        const isDestructive = destructiveSet && destructiveSet.has(memberName);
+        row.classList.toggle('retrieve-selected', cb.checked && !isDestructive);
+        row.classList.toggle('destructive-selected', isDestructive);
+      }
+    });
   }
   
   // If no members selected, deselect metadata type and remove from map
@@ -1150,12 +1348,28 @@ function selectAllMembers(metadataType) {
   const members = new Set();
   checkboxes.forEach(cb => {
     // Only select visible members (not filtered out)
+    const row = cb.closest('.member-row');
     const label = cb.closest('.member-label');
-    if (label && label.style.display !== 'none') {
+    const parentVisible = row ? row.style.display !== 'none' : (label && label.style.display !== 'none');
+    if (parentVisible) {
       cb.checked = true;
       members.add(cb.value);
+      // Clear any destructive mark and set retrieve-selected on the row
+      if (row) {
+        row.classList.remove('destructive-selected');
+        row.classList.add('retrieve-selected');
+      }
     }
   });
+  
+  // Remove destructive selections that now overlap with retrieve selections
+  const destructiveSet = selectedDestructiveMembers.get(metadataType);
+  if (destructiveSet) {
+    members.forEach(name => destructiveSet.delete(name));
+    if (destructiveSet.size === 0) {
+      selectedDestructiveMembers.delete(metadataType);
+    }
+  }
   
   selectedMembers.set(metadataType, members);
   updateMemberCountBadge(metadataType);
@@ -1172,10 +1386,19 @@ function clearMembers(metadataType) {
   
   checkboxes.forEach(cb => {
     cb.checked = false;
+    const row = cb.closest('.member-row');
+    if (row) {
+      row.classList.remove('retrieve-selected');
+      row.classList.remove('destructive-selected');
+    }
   });
   
-  selectedMembers.set(metadataType, '*');
+  // Also clear destructive selections for this type
+  selectedDestructiveMembers.delete(metadataType);
+  selectedMembers.delete(metadataType);
+  
   updateMemberCountBadge(metadataType);
+  updateDestructiveWarningUI();
   updatePackagePreview();
   saveSelections();
 }
@@ -1690,14 +1913,118 @@ async function applyPackageSelections(parsed) {
 // ========================================
 
 /**
- * Update package.xml preview based on selected metadata types
+ * Update the destructive export warning badge above the Export button.
+ * Call this whenever selectedDestructiveMembers changes.
+ */
+function updateDestructiveWarningUI() {
+  if (!elements.destructiveExportWarning || !elements.destructiveExportWarningText) return;
+  
+  let totalCount = 0;
+  selectedDestructiveMembers.forEach(set => {
+    if (set instanceof Set) totalCount += set.size;
+  });
+  
+  if (totalCount > 0) {
+    elements.destructiveExportWarning.classList.remove('hidden');
+    elements.destructiveExportWarningText.innerHTML =
+      `Includes <strong>${totalCount}</strong> member(s) marked for deletion — deploy the ZIP to apply`;
+  } else {
+    elements.destructiveExportWarning.classList.add('hidden');
+  }
+}
+
+/**
+ * Switch between package.xml and destructiveChanges.xml preview tabs
+ * @param {'package'|'destructive'} tab
+ */
+function switchPreviewTab(tab) {
+  activePreviewTab = tab;
+  
+  // Update tab active styles
+  if (elements.tabPackage) {
+    elements.tabPackage.classList.toggle('active', tab === 'package');
+  }
+  if (elements.tabDestructive) {
+    elements.tabDestructive.classList.toggle('active', tab === 'destructive');
+  }
+  
+  // Show/hide the info banner explaining this is export-only
+  if (elements.destructiveInfoBanner) {
+    if (tab === 'destructive') {
+      elements.destructiveInfoBanner.classList.remove('hidden');
+    } else {
+      elements.destructiveInfoBanner.classList.add('hidden');
+    }
+  }
+  
+  updatePackagePreview();
+}
+
+/**
+ * Update package.xml / destructiveChanges.xml preview based on the active tab and selections
  */
 function updatePackagePreview() {
-  console.log('[App] Updating package preview. Selected types:', selectedMetadataTypes.size);
+  console.log('[App] Updating package preview. Tab:', activePreviewTab, 'Selected types:', selectedMetadataTypes.size);
   
+  const previewCode = elements.packagePreview.querySelector('code');
+  
+  if (activePreviewTab === 'destructive') {
+    // --- Destructive changes tab ---
+    if (selectedDestructiveMembers.size === 0 || !orgInfo) {
+      previewCode.textContent = '<!-- No members marked for deletion -->';
+      // Clear stored destructive xml when nothing is selected
+      chrome.storage.local.remove('destructiveChangesXmlContent');
+      return;
+    }
+    
+    try {
+      const generator = new PackageXMLGenerator(orgInfo.apiVersion);
+      
+      const destructiveTypes = [];
+      selectedDestructiveMembers.forEach((memberSet, type) => {
+        if (memberSet instanceof Set && memberSet.size > 0) {
+          destructiveTypes.push({
+            name: type,
+            members: Array.from(memberSet)
+          });
+        }
+      });
+      
+      if (destructiveTypes.length === 0) {
+        previewCode.textContent = '<!-- No members marked for deletion -->';
+        chrome.storage.local.remove('destructiveChangesXmlContent');
+        return;
+      }
+      
+      const destructiveXML = generator.generateWithMembers(destructiveTypes);
+      previewCode.textContent = destructiveXML;
+      
+      // Persist for ZIP injection by the service worker
+      chrome.storage.local.set({ destructiveChangesXmlContent: destructiveXML });
+      console.log('[App] destructiveChanges.xml generated and saved to storage.');
+    } catch (error) {
+      console.error('[App] Failed to generate destructiveChanges.xml:', error);
+      previewCode.textContent = `<!-- Error generating destructiveChanges.xml: ${error.message} -->`;
+    }
+    return;
+  }
+  
+  // --- Package.xml tab (default) ---
   if (selectedMetadataTypes.size === 0 || !orgInfo) {
-    elements.packagePreview.querySelector('code').textContent = 
-      '<!-- Select metadata types to preview package.xml -->';
+    previewCode.textContent = '<!-- Select metadata types to preview package.xml -->';
+    return;
+  }
+  
+  // Collect only types that have retrieve selections
+  const retrieveTypes = Array.from(selectedMetadataTypes).filter(type => {
+    const members = selectedMembers.get(type);
+    return members === '*' ||
+           (members instanceof Set && members.size > 0) ||
+           (Array.isArray(members) && members.length > 0);
+  });
+  
+  if (retrieveTypes.length === 0) {
+    previewCode.textContent = '<!-- No members selected for retrieval. Use the destructiveChanges.xml tab to see deletion manifest. -->';
     return;
   }
   
@@ -1705,7 +2032,7 @@ function updatePackagePreview() {
     const generator = new PackageXMLGenerator(orgInfo.apiVersion);
     
     // Build types with members
-    const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
+    const typesWithMembers = retrieveTypes.map(type => {
       const members = selectedMembers.get(type);
       
       // Handle different member formats (wildcard, array, or Set)
@@ -1729,16 +2056,37 @@ function updatePackagePreview() {
     });
     
     console.log('[App] Generating package.xml for types:', typesWithMembers.length);
-    console.log('[App] Full typesWithMembers:', JSON.stringify(typesWithMembers, null, 2));
     
     const packageXML = generator.generateWithMembers(typesWithMembers);
     
-    elements.packagePreview.querySelector('code').textContent = packageXML;
+    previewCode.textContent = packageXML;
     console.log('[App] Package.xml generated successfully. Length:', packageXML.length);
+    
+    // Persist destructive xml whenever preview updates (in case tab not visited)
+    if (selectedDestructiveMembers.size > 0 && orgInfo) {
+      try {
+        const destructiveGenerator = new PackageXMLGenerator(orgInfo.apiVersion);
+        const destructiveTypes = [];
+        selectedDestructiveMembers.forEach((memberSet, type) => {
+          if (memberSet instanceof Set && memberSet.size > 0) {
+            destructiveTypes.push({ name: type, members: Array.from(memberSet) });
+          }
+        });
+        if (destructiveTypes.length > 0) {
+          const destructiveXML = destructiveGenerator.generateWithMembers(destructiveTypes);
+          chrome.storage.local.set({ destructiveChangesXmlContent: destructiveXML });
+        } else {
+          chrome.storage.local.remove('destructiveChangesXmlContent');
+        }
+      } catch (e) {
+        console.warn('[App] Could not update destructive xml in background:', e);
+      }
+    } else {
+      chrome.storage.local.remove('destructiveChangesXmlContent');
+    }
   } catch (error) {
     console.error('[App] Failed to generate package.xml:', error);
-    elements.packagePreview.querySelector('code').textContent = 
-      `<!-- Error generating package.xml: ${error.message} -->`;
+    previewCode.textContent = `<!-- Error generating package.xml: ${error.message} -->`;
   }
 }
 
@@ -1851,9 +2199,83 @@ async function startExport() {
     return;
   }
   
-  if (selectedMetadataTypes.size === 0 || !orgInfo) {
+  if (selectedMetadataTypes.size === 0 && selectedDestructiveMembers.size === 0) {
     return;
   }
+  
+  // If there are destructive members, show confirmation modal first
+  if (selectedDestructiveMembers.size > 0) {
+    showDestructiveConfirmModal();
+    return;
+  }
+  
+  await doStartExport();
+}
+
+/**
+ * Show the destructive export confirmation modal and populate member list
+ */
+function showDestructiveConfirmModal() {
+  if (!elements.destructiveConfirmModal) return;
+  
+  // Count total destructive members
+  let totalCount = 0;
+  selectedDestructiveMembers.forEach(set => {
+    if (set instanceof Set) totalCount += set.size;
+  });
+  
+  // Set the count
+  if (elements.destructiveConfirmCount) {
+    elements.destructiveConfirmCount.textContent = totalCount;
+  }
+  
+  // Populate the member list (capped at 20 for readability)
+  if (elements.destructiveConfirmList) {
+    elements.destructiveConfirmList.innerHTML = '';
+    let shown = 0;
+    const MAX_SHOWN = 20;
+    
+    selectedDestructiveMembers.forEach((memberSet, type) => {
+      if (!(memberSet instanceof Set)) return;
+      memberSet.forEach(name => {
+        if (shown >= MAX_SHOWN) return;
+        const li = document.createElement('li');
+        const badge = document.createElement('span');
+        badge.className = 'list-type-badge';
+        badge.textContent = type;
+        li.appendChild(badge);
+        li.appendChild(document.createTextNode(name));
+        elements.destructiveConfirmList.appendChild(li);
+        shown++;
+      });
+    });
+    
+    if (totalCount > MAX_SHOWN) {
+      const li = document.createElement('li');
+      li.style.fontStyle = 'italic';
+      li.style.color = '#718096';
+      li.textContent = `…and ${totalCount - MAX_SHOWN} more`;
+      elements.destructiveConfirmList.appendChild(li);
+    }
+  }
+  
+  elements.destructiveConfirmModal.classList.remove('hidden');
+}
+
+/**
+ * Hide the destructive export confirmation modal
+ */
+function hideDestructiveConfirmModal() {
+  if (elements.destructiveConfirmModal) {
+    elements.destructiveConfirmModal.classList.add('hidden');
+  }
+}
+
+/**
+ * The actual export logic (called after confirmation if needed)
+ */
+async function doStartExport() {
+  if (!orgInfo) return;
   
   try {
     exportInProgress = true;
@@ -2056,9 +2478,10 @@ function showSuccess(message) {
  * Update export button enabled/disabled state
  */
 function updateExportButtonState() {
+  const hasDestructive = selectedDestructiveMembers.size > 0;
   const canExport = 
     orgInfo !== null && 
-    selectedMetadataTypes.size > 0 && 
+    (selectedMetadataTypes.size > 0 || hasDestructive) && 
     !exportInProgress;
   
   elements.exportBtn.disabled = !canExport;
@@ -2234,8 +2657,30 @@ function attachEventListeners() {
     elements.togglePreview.addEventListener('click', togglePreview);
   }
   
+  // Preview tab switchers
+  if (elements.tabPackage) {
+    elements.tabPackage.addEventListener('click', () => switchPreviewTab('package'));
+  }
+  if (elements.tabDestructive) {
+    elements.tabDestructive.addEventListener('click', () => switchPreviewTab('destructive'));
+  }
+  
   // Export button
   elements.exportBtn.addEventListener('click', startExport);
+  
+  // Destructive confirmation modal
+  if (elements.destructiveConfirmCancel) {
+    elements.destructiveConfirmCancel.addEventListener('click', hideDestructiveConfirmModal);
+  }
+  if (elements.destructiveConfirmOverlay) {
+    elements.destructiveConfirmOverlay.addEventListener('click', hideDestructiveConfirmModal);
+  }
+  if (elements.destructiveConfirmProceed) {
+    elements.destructiveConfirmProceed.addEventListener('click', async () => {
+      hideDestructiveConfirmModal();
+      await doStartExport();
+    });
+  }
   
   // Listen for messages from background worker (export progress updates, auth changes)
   chrome.runtime.onMessage.addListener(handleBackgroundMessage);

@@ -118,7 +118,10 @@
             <!-- RIGHT: package.xml Preview (2/3 width) -->
             <section id="package-preview-section" class="card column-right">
                 <div class="preview-header">
-                    <h2>📄 package.xml Preview</h2>
+                    <div class="preview-tabs">
+                        <button id="tab-package" class="preview-tab active">📄 package.xml</button>
+                        <button id="tab-destructive" class="preview-tab">🗑️ destructiveChanges.xml</button>
+                    </div>
                     <div class="preview-actions">
                         <button id="upload-package-btn" class="action-btn" title="Upload package.xml file">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -141,10 +144,26 @@
                     </div>
                     <input type="file" id="package-file-input" accept=".xml,.txt" style="display: none;">
                 </div>
+                <div id="destructive-info-banner" class="destructive-info-banner hidden">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span><strong>Read-only export.</strong> This manifest does <em>not</em> delete anything automatically. To delete these components, deploy the downloaded ZIP using <strong>Salesforce CLI</strong>, <strong>Ant Migration Tool</strong>, or <strong>Workbench</strong>.</span>
+                </div>
                 <pre id="package-preview"><code><!-- Generated package.xml will appear here --></code></pre>
                 
                 <!-- Export Controls -->
                 <div id="export-section">
+                    <div id="destructive-export-warning" class="destructive-export-warning hidden">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <span id="destructive-export-warning-text">Includes <strong>0</strong> member(s) for deletion</span>
+                    </div>
                     <button id="export-btn" class="primary-btn" disabled>
                         🚀 Export Metadata
                     </button>
@@ -270,6 +289,35 @@
                             <label class="ds-option-label"><input id="ds-userPermissions" type="checkbox" checked /> Keep User Permissions</label>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DESTRUCTIVE EXPORT CONFIRMATION MODAL -->
+    <div id="destructive-confirm-modal" class="modal hidden">
+        <div class="modal-overlay" id="destructive-confirm-overlay"></div>
+        <div class="modal-content destructive-confirm-content">
+            <div class="modal-header destructive-modal-header">
+                <div class="destructive-modal-icon">⚠️</div>
+                <h2>Confirm Export with Deletions</h2>
+            </div>
+            <div class="modal-body">
+                <div class="destructive-confirm-info">
+                    <p>Your export package includes <strong id="destructive-confirm-count">0</strong> member(s) marked for deletion:</p>
+                    <ul id="destructive-confirm-list" class="destructive-confirm-list"></ul>
+                    <div class="destructive-confirm-notice">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span>The export itself <strong>does not delete anything</strong>. The downloaded ZIP contains a <code>destructiveChanges.xml</code> manifest. Components are only deleted when you <strong>deploy</strong> that package to a Salesforce org.</span>
+                    </div>
+                </div>
+                <div class="destructive-confirm-actions">
+                    <button id="destructive-confirm-cancel" class="modal-cancel-btn">Cancel</button>
+                    <button id="destructive-confirm-proceed" class="primary-btn destructive-confirm-proceed-btn">📦 Continue Export</button>
                 </div>
             </div>
         </div>

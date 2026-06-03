@@ -439,3 +439,117 @@ body.dark-theme .ds-option-label {
 body.dark-theme .ds-option-label input[type="checkbox"] {
   accent-color: #8b9aee;
 }
+
+/* Dark Theme - Preview Tabs */
+body.dark-theme .preview-tabs {
+  border-bottom-color: #334155;
+}
+
+body.dark-theme .preview-tab {
+  color: #94a3b8;
+}
+
+body.dark-theme .preview-tab.active {
+  color: #8b9aee;
+  border-bottom-color: #8b9aee;
+}
+
+body.dark-theme .preview-tab:hover:not(.active) {
+  color: #cbd5e1;
+}
+
+/* Dark Theme - Member Rows & Destructive selection */
+body.dark-theme .member-row {
+  background: #0f172a;
+  border-color: transparent;
+}
+
+body.dark-theme .member-row:hover {
+  background: #1e293b;
+}
+
+body.dark-theme .member-row.destructive-selected {
+  background: rgba(248, 113, 113, 0.08) !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+body.dark-theme .member-row.retrieve-selected {
+  border-color: rgba(139, 154, 238, 0.25);
+  background: rgba(139, 154, 238, 0.04);
+}
+
+body.dark-theme .member-delete-btn {
+  color: #475569;
+}
+
+body.dark-theme .member-delete-btn:hover {
+  color: #f87171;
+  background-color: rgba(248, 113, 113, 0.15);
+}
+
+body.dark-theme .member-row.destructive-selected .member-delete-btn {
+  color: #f87171;
+}
+
+/* Dark theme — Destructive Info Banner */
+body.dark-theme .destructive-info-banner {
+  background: rgba(66, 153, 225, 0.1);
+  border-color: rgba(66, 153, 225, 0.25);
+  color: #90cdf4;
+}
+
+body.dark-theme .destructive-info-banner svg {
+  color: #63b3ed;
+}
+
+/* Dark theme — Export Warning Badge */
+body.dark-theme .destructive-export-warning {
+  background: rgba(237, 137, 54, 0.12);
+  border-color: rgba(237, 137, 54, 0.3);
+  color: #fbd38d;
+}
+
+body.dark-theme .destructive-export-warning svg {
+  color: #f6ad55;
+}
+
+/* Dark theme — Destructive Confirm Modal */
+body.dark-theme .destructive-confirm-info p {
+  color: #e2e8f0;
+}
+
+body.dark-theme .destructive-confirm-list {
+  background: #2d3748;
+  border-color: #4a5568;
+}
+
+body.dark-theme .destructive-confirm-list li {
+  color: #cbd5e0;
+  border-bottom-color: #4a5568;
+}
+
+body.dark-theme .destructive-confirm-notice {
+  background: rgba(66, 153, 225, 0.1);
+  border-color: rgba(66, 153, 225, 0.25);
+  color: #90cdf4;
+}
+
+body.dark-theme .destructive-confirm-notice svg {
+  color: #63b3ed;
+}
+
+body.dark-theme .destructive-confirm-notice code {
+  background: rgba(66, 153, 225, 0.15);
+  color: #90cdf4;
+}
+
+body.dark-theme .modal-cancel-btn {
+  background: #2d3748;
+  border-color: #4a5568;
+  color: #cbd5e0;
+}
+
+body.dark-theme .modal-cancel-btn:hover {
+  background: #4a5568;
+  border-color: #718096;
+}

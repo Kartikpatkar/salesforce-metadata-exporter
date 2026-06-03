@@ -41,6 +41,7 @@
     opacity: 0;
     transform: translateY(-20px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -49,7 +50,6 @@
 
 .modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
   border-bottom: 2px solid #e2e8f0;
