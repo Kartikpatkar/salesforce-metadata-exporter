@@ -164,7 +164,11 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 ![Light Mode - Main Page](/screenshots/light-theme-main-page.png)
 
-![Light Mode - Org/Profile Modal](/screenshots/light-theme-profile-page.png)
+![Light Mode - Destructive Changes preview](/screenshots/light-theme-destructive-changes-preview.png)
+
+![Light Mode - Org/Profile Modal](/screenshots/light-theme-profile-window.png)
+
+![Light Mode - Export Confirmation](/screenshots/light-theme-export-confirmation.png)
 
 ### 🌑 Dark Mode
 
