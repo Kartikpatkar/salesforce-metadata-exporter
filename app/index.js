@@ -1355,8 +1355,42 @@ function getChecklistMessage(status, elapsedSeconds) {
   return `${step1}\n${step2}\n${step3}\n${step4}${typesSubtitle}`;
 }
 
+/**
+ * Cancel the active export process
+ */
+async function cancelExport() {
+  try {
+    const confirmed = confirm('Are you sure you want to stop the metadata export?');
+    if (!confirmed) return;
+    
+    showExportProgress('Stopping export...', 50);
+    
+    const response = await chrome.runtime.sendMessage({
+      type: 'CANCEL_EXPORT'
+    });
+    
+    if (response.success) {
+      exportInProgress = false;
+      elements.exportBtn.innerHTML = '🚀 Export Metadata';
+      elements.exportBtn.classList.remove('cancel-btn');
+      hideExportProgress();
+      showSuccess('Export stopped by user.');
+    } else {
+      throw new Error(response.error || 'Failed to cancel export');
+    }
+  } catch (error) {
+    console.error('[App] Failed to cancel export:', error);
+    showError('Failed to stop export: ' + error.message);
+  }
+}
+
 async function startExport() {
-  if (exportInProgress || selectedMetadataTypes.size === 0 || !orgInfo) {
+  if (exportInProgress) {
+    await cancelExport();
+    return;
+  }
+  
+  if (selectedMetadataTypes.size === 0 || !orgInfo) {
     return;
   }
   
@@ -1419,9 +1453,14 @@ async function startExport() {
       dismissToast(progressToast);
       progressToast = null;
     }
-    showError(`Export failed: ${error.message}`);
+    // Only show error if the user didn't cancel it explicitly
+    if (exportInProgress) {
+      showError(`Export failed: ${error.message}`);
+    }
   } finally {
     exportInProgress = false;
+    elements.exportBtn.innerHTML = '🚀 Export Metadata';
+    elements.exportBtn.classList.remove('cancel-btn');
     hideExportProgress();
   }
 }
@@ -1439,7 +1478,9 @@ async function pollExportStatus() {
   const startTime = Date.now();
   
   while (attempts < maxAttempts) {
+    if (!exportInProgress) return;
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    if (!exportInProgress) return;
     
     const response = await chrome.runtime.sendMessage({
       type: 'GET_EXPORT_STATUS'
@@ -1499,7 +1540,16 @@ function showExportProgress(message, progress = 0) {
     // Update the persistent toast with new message
     updateToast(progressToast, 'Export Progress', message);
   }
-  elements.exportBtn.disabled = true;
+  
+  if (progress === 100) {
+    elements.exportBtn.innerHTML = '🚀 Export Metadata';
+    elements.exportBtn.classList.remove('cancel-btn');
+    updateExportButtonState();
+  } else {
+    elements.exportBtn.innerHTML = '❌ Stop Export';
+    elements.exportBtn.classList.add('cancel-btn');
+    elements.exportBtn.disabled = false; // Keep it enabled so user can cancel!
+  }
 }
 
 /**
@@ -1697,7 +1747,10 @@ function handleBackgroundMessage(message) {
         dismissToast(progressToast);
         progressToast = null;
       }
-      showError(message.error);
+      // Only show error if the user didn't cancel it explicitly
+      if (message.error !== 'Export cancelled by user') {
+        showError(message.error);
+      }
       hideExportProgress();
       break;
     
