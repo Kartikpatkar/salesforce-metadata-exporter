@@ -1695,18 +1695,32 @@ function selectAllMetadata() {
  * Clear all metadata selections
  */
 function clearAllSelections() {
+  // Clear retrieve state
   selectedMetadataTypes.clear();
+  selectedMembers.clear();
   
-  // Query checkboxes directly
+  // Clear destructive state
+  selectedDestructiveMembers.clear();
+  chrome.storage.local.remove('destructiveChangesXmlContent');
+  
+  // Uncheck all metadata type checkboxes and reset all member row classes
   const checkboxes = document.querySelectorAll('#metadata-types input[type="checkbox"]');
-  
   checkboxes.forEach(checkbox => {
     checkbox.checked = false;
   });
   
-  console.log('[App] Cleared all selections');
+  // Reset member row visual states
+  const memberRows = document.querySelectorAll('.member-row');
+  memberRows.forEach(row => {
+    row.classList.remove('retrieve-selected', 'destructive-selected');
+    const cb = row.querySelector('.member-checkbox');
+    if (cb) cb.checked = false;
+  });
+  
+  console.log('[App] Cleared all selections (retrieve + destructive)');
   
   updateExportButtonState();
+  updateDestructiveWarningUI();
   updatePackagePreview();
   saveSelections();
 }
