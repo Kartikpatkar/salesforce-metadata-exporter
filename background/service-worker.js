@@ -322,7 +322,8 @@ async function handleStartExport(payload, sendResponse) {
       orgInfo,
       status: 'InProgress',
       startTime: Date.now(),
-      downloaded: false  // Track if already downloaded
+      downloaded: false,  // Track if already downloaded
+      selectedTypes: typesWithMembers.map(t => t.name)
     });
     
     sendResponse({ success: true, retrieveId });
@@ -496,9 +497,18 @@ async function handleGetExportStatus(sendResponse) {
     }
     
     const progress = retrieveStatus.done ? 100 : 60;
-    const message = retrieveStatus.done 
-      ? (retrieveStatus.success ? '✅ Export complete!' : '❌ Export failed')
-      : 'Processing metadata...';
+    
+    // Construct dynamic message based on selected types
+    let message = 'Processing metadata...';
+    if (retrieveStatus.done) {
+      message = retrieveStatus.success ? '✅ Export complete!' : '❌ Export failed';
+    } else if (state.selectedTypes && state.selectedTypes.length > 0) {
+      const types = state.selectedTypes;
+      const displayLimit = 3;
+      const displayTypes = types.slice(0, displayLimit).join(', ');
+      const remainingCount = types.length - displayLimit;
+      message = `Processing metadata (${displayTypes}${remainingCount > 0 ? ` and ${remainingCount} more` : ''})...`;
+    }
     
     sendResponse({ 
       success: true, 

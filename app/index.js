@@ -1311,6 +1311,50 @@ function togglePreview() {
  * 4. Poll for retrieve status
  * 5. Download ZIP when ready
  */
+/**
+ * Helper to build progress checklist message for toast notification
+ * @param {string} status - Current status of export
+ * @param {number} elapsedSeconds - Seconds since export started
+ * @returns {string} Formatted checklist string
+ */
+function getChecklistMessage(status, elapsedSeconds) {
+  const timeStr = elapsedSeconds > 0 
+    ? ` (${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s)`
+    : '';
+
+  const types = Array.from(selectedMetadataTypes);
+  const displayLimit = 3;
+  const displayTypes = types.slice(0, displayLimit).join(', ');
+  const remainingCount = types.length - displayLimit;
+  const typesSubtitle = types.length > 0
+    ? `\n\nRetrieving: ${displayTypes}${remainingCount > 0 ? ` and ${remainingCount} more` : ''}`
+    : '';
+
+  let step1 = '✓ Prepared package.xml';
+  let step2 = '✓ Initiated retrieve request';
+  let step3 = '○ Compiling & packaging metadata';
+  let step4 = '○ Downloading ZIP file';
+
+  if (status === 'Preparing') {
+    step1 = '● Preparing package.xml';
+    step2 = '○ Initiating retrieve request';
+  } else if (status === 'Initiating') {
+    step1 = '✓ Prepared package.xml';
+    step2 = '● Initiating retrieve request';
+  } else if (status === 'Pending') {
+    step3 = `● Queued on Salesforce server${timeStr}`;
+  } else if (status === 'InProgress') {
+    step3 = `● Compiling & packaging metadata${timeStr}`;
+  } else if (status === 'Succeeded') {
+    step3 = '✓ Compiling & packaging metadata';
+    step4 = '✓ Downloaded ZIP file';
+  } else if (status === 'Failed') {
+    step3 = '❌ Failed on Salesforce server';
+  }
+
+  return `${step1}\n${step2}\n${step3}\n${step4}${typesSubtitle}`;
+}
+
 async function startExport() {
   if (exportInProgress || selectedMetadataTypes.size === 0 || !orgInfo) {
     return;
@@ -1318,7 +1362,7 @@ async function startExport() {
   
   try {
     exportInProgress = true;
-    showExportProgress('Preparing metadata export...');
+    showExportProgress(getChecklistMessage('Preparing', 0), 0);
     
     // Send message to background service worker to initiate export
     console.log('[App] Starting metadata export...', {
@@ -1363,7 +1407,7 @@ async function startExport() {
     }
     
     console.log('[App] Export initiated:', response.retrieveId);
-    showExportProgress('Export in progress...', 50);
+    showExportProgress(getChecklistMessage('Pending', 0), 20);
     
     // Poll for export status
     await pollExportStatus();
@@ -1405,27 +1449,21 @@ async function pollExportStatus() {
       throw new Error(response.error || 'Failed to get export status');
     }
     
-    const { status, progress, message } = response;
+    const { status, progress } = response;
     
     // Add elapsed time to progress message for long-running exports
     const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-    let progressMessage = message || 'Processing...';
-    
-    // Show elapsed time after 1 minute for user awareness
-    if (elapsedSeconds > 60) {
-      const minutes = Math.floor(elapsedSeconds / 60);
-      const seconds = elapsedSeconds % 60;
-      progressMessage += ` (${minutes}m ${seconds}s elapsed)`;
-    }
+    const progressMessage = getChecklistMessage(status, elapsedSeconds);
     
     showExportProgress(progressMessage, progress || 50);
     
     if (status === 'Succeeded') {
-      showExportProgress('Export complete! Download started.', 100);
+      showExportProgress(getChecklistMessage('Succeeded', elapsedSeconds), 100);
       return;
     }
     
     if (status === 'Failed') {
+      showExportProgress(getChecklistMessage('Failed', elapsedSeconds), 100);
       throw new Error('Export failed on server');
     }
     
@@ -1640,7 +1678,14 @@ function handleBackgroundMessage(message) {
       break;
     
     case 'EXPORT_PROGRESS':
-      showExportProgress(message.status, message.progress);
+      // Map progress values to checklist status
+      let checklistStatus = 'Pending';
+      if (message.progress <= 10) {
+        checklistStatus = 'Preparing';
+      } else if (message.progress <= 30) {
+        checklistStatus = 'Initiating';
+      }
+      showExportProgress(getChecklistMessage(checklistStatus, 0), message.progress);
       break;
     
     case 'EXPORT_COMPLETE':
