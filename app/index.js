@@ -46,6 +46,7 @@ const elements = {
   metadataSearch: document.getElementById('metadata-search'),
   presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
+  presetRefresh: document.getElementById('preset-refresh'),
   uploadPackageBtn: document.getElementById('upload-package-btn'),
   packageFileInput: document.getElementById('package-file-input'),
   pastePackageBtn: document.getElementById('paste-package-btn'),
@@ -375,9 +376,10 @@ async function displayOrgInfo(org) {
 
 /**
  * Load available metadata types from the connected org
+ * @param {boolean} forceRefresh - If true, bypass local storage cache
  */
-async function loadMetadataTypes() {
-  console.log('[App] Loading metadata types from org...');
+async function loadMetadataTypes(forceRefresh = false) {
+  console.log(`[App] Loading metadata types from org (forceRefresh: ${forceRefresh})...`);
   
   try {
     // Show loading state
@@ -387,12 +389,15 @@ async function loadMetadataTypes() {
     // Request metadata types from background worker
     const response = await chrome.runtime.sendMessage({
       type: 'GET_METADATA_TYPES',
-      payload: { orgInfo }
+      payload: { orgInfo, forceRefresh }
     });
     
     if (response.success && response.metadataTypes) {
       renderMetadataTypes(response.metadataTypes);
       await loadSavedSelections();
+      if (forceRefresh) {
+        showSuccess('Metadata types refreshed successfully!');
+      }
     } else {
       throw new Error(response.error || 'Failed to load metadata types');
     }
@@ -1681,6 +1686,9 @@ function attachEventListeners() {
   }
   if (elements.presetClear) {
     elements.presetClear.addEventListener('click', clearAllSelections);
+  }
+  if (elements.presetRefresh) {
+    elements.presetRefresh.addEventListener('click', () => loadMetadataTypes(true));
   }
   
   // Upload package.xml button
