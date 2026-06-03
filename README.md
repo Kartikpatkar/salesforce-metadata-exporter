@@ -1,7 +1,7 @@
 # ⚡ Salesforce Metadata Exporter – Package XML Generator & Metadata Explorer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-1.0.3-blue.svg)](#)
+[![Version](https://img.shields.io/badge/Version-1.1.0-blue.svg)](#)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg?logo=google-chrome)](https://chromewebstore.google.com/detail/mnkhginjgjbcmnfkcfnjbhpgnjfmeibd)
 [![Salesforce](https://img.shields.io/badge/Salesforce-Metadata%20API-00A1E0.svg)](#)
 
@@ -90,19 +90,27 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 
 * Select **individual metadata components** or use wildcards
 * "Select All" / "Clear All" support per metadata type
+* **Mark members for deletion** — click the 🗑️ trash icon to add a component to the `destructiveChanges.xml` manifest instead of retrieving it
+* Member rows show colour-coded state: **blue border** = retrieve, **red border** = delete
 * Global preset filters:
   * Select All Metadata
   * Clear All Selections
+* **Preset Manager** — save and reload named selection presets stored in Chrome Storage
 * Search within metadata components
-* Visual member count badges
+* **Global member search** — search across all loaded member lists at once using the `Members` search mode
+* Visual member count badges (shows `N (+)` for retrieve, `N (-)` for deletion)
 * Selected metadata types persist across sessions using Chrome Storage
 * On extension open, selected types default to **all members** (`*`) for consistent preview/export behavior
 
 ---
 
-### 📦 Smart `package.xml` Generator
+### 📦 Smart `package.xml` + `destructiveChanges.xml` Generator
 
-* Generates **valid Salesforce `package.xml`**
+* Generates **valid Salesforce `package.xml`** for retrieval
+* Generates **`destructiveChanges.xml`** for deletion manifests — mark individual members for deletion using the trash icon
+* **Dual preview tabs**:
+  * `📄 package.xml` — live retrieval manifest
+  * `🗑️ destructiveChanges.xml` — live deletion manifest
 * **Import existing package.xml** with multiple options:
   * **Upload from file** - Select package.xml file from disk
   * **Paste from clipboard** - Copy package.xml content and paste directly
@@ -117,10 +125,12 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 * **Copy to clipboard** with one click
 * Automatically updates as selections change
 * Configurable Salesforce **API version** (v59.0)
-* One-click **copy to clipboard** with visual feedback
-* Export metadata as **downloadable ZIP package**
+* Export metadata as **downloadable ZIP package** — if deletions are marked, `destructiveChanges.xml` is automatically injected alongside `package.xml` inside the ZIP
 * Export progress shown via a **persistent toast** that stays visible and updates during long exports (includes elapsed time)
 * Export timeout is configurable in the **Org/Profile modal** (default: 30 minutes)
+* **Stop Export** — cancel a running export mid-way using the Stop button
+
+> ⚠️ **Important**: Exporting with `destructiveChanges.xml` does **not** delete anything from your org. The manifest only takes effect when the ZIP is **deployed** to a Salesforce org using CLI, Ant, or Workbench.
 
 ---
 
@@ -241,14 +251,19 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
      * Review and modify selections as needed
 
 4. **Preview Package XML**
-   * View the generated package.xml in real-time
-   * Click "Copy" button to copy to clipboard
+   * View the **live preview** of `package.xml` or `destructiveChanges.xml` via the tab switcher
+   * The `🗑️ destructiveChanges.xml` tab shows which components will be deleted on deploy
+   * Click "Copy" button to copy the active manifest to clipboard
 
 5. **Export Metadata**
-   * Click "Export Metadata as ZIP"
-  * Monitor progress in the top-right persistent toast (updates + elapsed time)
-  * Optional: adjust **Export Timeout (Minutes)** in the Org/Profile modal if needed
-   * Download completes automatically
+   * Click **"Export Metadata"**
+   * If destructive members exist, a confirmation dialog appears — review the deletion list and click **"Continue Export"**
+   * Monitor progress in the top-right persistent toast (updates + elapsed time)
+   * Click **"Stop Export"** to cancel a running export at any time
+   * Optional: adjust **Export Timeout (Minutes)** in the Org/Profile modal if needed
+   * Download completes automatically — the ZIP will contain both `package.xml` and `destructiveChanges.xml` if deletions were marked
+
+> 💡 **To actually delete** components: deploy the downloaded ZIP to a Salesforce org using Salesforce CLI (`sf project deploy start`), Ant Migration Tool, or Workbench.
 
 ---
 
@@ -260,6 +275,11 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ✅ Metadata component listing (Tooling API + Metadata API)
 ✅ Individual member selection
 ✅ Partial & full `package.xml` generation
+✅ **`destructiveChanges.xml` generation** (mark members for deletion; auto-injected into exported ZIP)
+✅ **Preset Manager** (save/load named selection presets)
+✅ **Global member search** (search across all loaded member lists)
+✅ **Stop Export** (cancel a running export mid-flight)
+✅ **Profile & Permission Set Downsizing** (strip unwanted XML sections before download)
 ✅ Live XML preview with syntax highlighting
 ✅ Copy to clipboard functionality
 ✅ **ZIP export with Metadata API retrieve()**
@@ -267,7 +287,7 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ✅ Saved metadata type selections (members default to `*` on open)
 ✅ Dark / light theme toggle
 ✅ Clear search buttons
-✅ Member count badges
+✅ Member count badges (retrieve + delete counts)
 ✅ Responsive design
 ✅ Modern modular CSS architecture
 
@@ -276,11 +296,8 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 ## 🛣️ Roadmap (Planned Enhancements)
 
 * 📦 Enhanced ZIP content preview
-* 🧨 `destructiveChanges.xml` generation
-* 👤 Profile & PermissionSet sub-component selection
-* 🔍 Advanced metadata search across types
+* 👤 Profile & PermissionSet sub-component selection (beyond downsizing)
 * 🔄 Org-to-org metadata comparison
-* 💾 Saved package presets
 * 📊 Metadata dependency visualization
 * 🏷️ Custom metadata type grouping
 * ⚡ Batch export optimization

@@ -9,6 +9,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - _No unreleased changes._
 
+## [1.1.0] - 2026-06-03
+
+### Added
+
+#### 🗑️ `destructiveChanges.xml` Generation
+- **Dual-manifest export**: Each metadata member row now has a **trash icon** button. Clicking it marks the component for deletion rather than retrieval.
+- **Preview tab switcher**: The package preview panel now has two tabs — `📄 package.xml` (retrieve) and `🗑️ destructiveChanges.xml` (deletion manifest). Switching between tabs renders the respective XML live.
+- **ZIP injection**: When exporting, if any members are marked for deletion, the downloaded ZIP automatically includes `destructiveChanges.xml` alongside `package.xml` (placed in the same folder, e.g. `unpackaged/`). No manual file creation needed.
+- **Row state classes**: Member rows display a blue border when selected for retrieval (`retrieve-selected`) and a red border when marked for deletion (`destructive-selected`). Mutually exclusive — a member cannot be in both states.
+- **Persistent destructive state**: Destructive selections are saved to `chrome.storage.local` and restored on extension re-open.
+- **`handleMemberDestructiveClick`**: New handler manages toggling the destructive state, removing the member from the retrieval set, and syncing row CSS.
+
+#### 🛡️ Destructive Export Safety Guards
+- **Info banner**: When the `🗑️ destructiveChanges.xml` tab is active, a blue informational banner clearly explains: *"This manifest does not delete anything automatically — deploy the ZIP to apply."*
+- **Amber warning badge**: Appears above the Export button whenever any members are marked for deletion, showing the count: *"Includes N member(s) marked for deletion — deploy the ZIP to apply."*
+- **Confirmation modal** (`⚠️ Confirm Export with Deletions`): If the user clicks Export while destructive members exist, a modal appears listing every member marked for deletion (with metadata type badges), and reiterating that the export itself is read-only. The user must explicitly click **Continue Export** to proceed.
+- Both banner and modal fully support dark mode.
+
+#### 💾 Saved Selection Presets (Preset Manager)
+- **Save named presets**: Users can save their current metadata type + member selections as a named preset.
+- **Load presets**: A dropdown lists all saved presets; selecting one restores the full selection state.
+- **Delete presets**: Remove individual presets from the manager.
+- **Toggle visibility**: A **Presets** button in the metadata toolbar shows/hides the preset manager panel inline.
+- Presets are stored in `chrome.storage.local` under `userPresets` and survive extension restarts.
+- Full dark mode support for the preset manager panel.
+
+#### 🔍 Global Metadata Search
+- **Search across all member names**: A new search mode (`Members` radio button) searches within all already-expanded metadata types simultaneously, instead of just filtering metadata type names.
+- Results highlight matching types and filter member lists in real time.
+
+#### ⏹️ Stop Export Button
+- The **Export Metadata** button becomes a **Stop Export** button (`⏹ Stop Export`) once an export begins.
+- Clicking it sends a `CANCEL_EXPORT` message to the background service worker and stops the polling loop.
+- The button reverts and UI resets when the export is cancelled or completes.
+
+#### 🗂️ Profile & Permission Set Downsizing
+- New **Profile & Permission Set Downsizing** settings panel in the Org/Profile modal.
+- When enabled, the exported ZIP strips unwanted sub-sections from `.profile` and `.permissionset` XML files before download (e.g. classAccesses, fieldPermissions, objectPermissions, etc.).
+- Each sub-section is independently toggleable (Keep/Strip).
+- Setting persists in `chrome.storage.local` under `profileDownsizeSettings`.
+
+### Changed
+
+- **`renderMembers()`**: Each member is now wrapped in a `div.member-row` (flex container) instead of a bare `label`. The label and the delete button sit side-by-side inside the row.
+- **`filterMembers()`**: Updated to filter `.member-row` elements (with `.member-label` fallback for backwards compatibility).
+- **`selectAllMembers()`**: Clears any destructive selections that would overlap with newly retrieved members; updates row classes.
+- **`clearMembers()`**: Clears **both** retrieve and destructive selections for the type; resets all row classes.
+- **`handleMemberSelection()`**: On checkbox check, automatically clears any existing destructive mark for that member and syncs row CSS classes.
+- **`updatePackagePreview()`**: Extended to support both the package and destructive preview tabs. Persists `destructiveChangesXmlContent` to `chrome.storage.local` in background on every update.
+- **`updateExportButtonState()`**: Now enables the Export button when destructive-only members are selected (no retrieve types required).
+- **`startExport()`**: Split into `startExport()` (entry point + confirmation gate) and `doStartExport()` (actual export logic).
+- **`ZipHandler.downloadZip()`**: Now chains `injectDestructiveChangesIfEnabled()` → `downsizeZipIfEnabled()` → download.
+
+### Fixed
+
+- Export button no longer gets stuck in a disabled state if the first metadata type is added via the trash (destructive) path.
+
+
 ## [1.0.3] - 2026-04-09
 
 ### Added
@@ -171,6 +229,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History Summary
 
+- **1.1.0** (Jun 2026) - destructiveChanges.xml, preset manager, global search, stop export, profile downsizing
 - **1.0.3** (Apr 2026) - Toast-based UX, export timeout setting, SVG sprite icons
 - **1.0.2** (Apr 2026) - Large org timeout fix + progress improvements
 - **1.0.1** (Jan 2026) - Dark theme, modular CSS, Chrome Web Store prep
@@ -178,7 +237,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Kartikpatkar/salesforce-metadata-exporter/compare/v1.0.0...v1.0.1
