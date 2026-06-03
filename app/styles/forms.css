@@ -139,3 +139,62 @@
 .member-search-container .clear-search-btn {
   right: 6px;
 }
+
+/* Profile Downsizing Settings Options */
+.settings-hint-long {
+  font-size: 0.75rem;
+  color: #718096;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.toggle-checkbox-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #2d3748;
+}
+
+.toggle-checkbox-label input[type="checkbox"] {
+  margin-right: 0.5rem;
+  width: 16px;
+  height: 16px;
+  accent-color: #667eea;
+  cursor: pointer;
+}
+
+.profile-downsize-container {
+  margin-top: 1.25rem !important;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1.25rem;
+}
+
+.profile-downsize-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  padding-left: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.profile-downsize-options.hidden {
+  display: none !important;
+}
+
+.ds-option-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #4a5568;
+  font-weight: 500;
+  gap: 0.375rem;
+}
+
+.ds-option-label input[type="checkbox"] {
+  accent-color: #667eea;
+  cursor: pointer;
+}

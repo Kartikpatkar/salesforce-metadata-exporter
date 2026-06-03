@@ -62,11 +62,49 @@
                     </button>
                 </div>
 
+                <!-- Search Mode Toggle -->
+                <div class="search-options">
+                    <label class="search-option-label">
+                        <input type="radio" name="search-mode" id="search-mode-types" value="types" checked> Types
+                    </label>
+                    <label class="search-option-label">
+                        <input type="radio" name="search-mode" id="search-mode-members" value="members"> Components
+                    </label>
+                    <button id="preload-members-btn" class="preload-members-btn hidden" title="Load members for global search">Preload All</button>
+                </div>
+
                 <!-- Quick Actions -->
                 <div id="preset-buttons">
                     <button id="preset-select-all" class="preset-btn">Select All</button>
                     <button id="preset-clear" class="preset-btn secondary">Clear</button>
                     <button id="preset-refresh" class="preset-btn refresh" title="Refresh metadata types from Salesforce">Refresh</button>
+                    <button id="preset-toggle-manager" class="preset-btn presets" title="Toggle Presets Manager">Presets</button>
+                </div>
+
+                <!-- Presets Manager -->
+                <div id="preset-manager-container" class="preset-manager-container hidden">
+                    <div class="preset-select-row">
+                        <select id="preset-dropdown" class="preset-dropdown-select">
+                            <option value="">-- Apply Preset --</option>
+                        </select>
+                        <button id="delete-preset-btn" class="preset-action-btn delete" title="Delete selected preset" style="display: none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <use href="assets/icons.svg#icon-x"></use>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="preset-save-row">
+                        <button id="save-preset-btn" class="preset-action-btn save" title="Save current selections as a preset">
+                            💾 Save Current Selection
+                        </button>
+                    </div>
+                    <div id="preset-name-input-container" class="preset-name-input-container hidden">
+                        <input type="text" id="preset-name-input" class="preset-name-input" placeholder="Preset name...">
+                        <div class="preset-name-actions">
+                            <button id="preset-save-confirm" class="preset-confirm-btn">Save</button>
+                            <button id="preset-save-cancel" class="preset-cancel-btn">Cancel</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Metadata Type Checkboxes (dynamically populated from org) -->
@@ -208,6 +246,28 @@
                         <div class="settings-row">
                             <input id="export-timeout-minutes" type="number" min="1" max="240" step="1" class="settings-input" />
                             <span class="settings-hint">Default: 30</span>
+                        </div>
+                    </div>
+
+                    <!-- Profile & Permission Set Downsizing Settings -->
+                    <div class="org-detail-item settings-container profile-downsize-container">
+                        <strong>Profile & Permission Set Downsizing</strong>
+                        <p class="settings-hint-long">Strip unselected parts of .profile / .permissionset XML files to reduce download sizes and prevent layout conflicts.</p>
+                        <div class="settings-row">
+                            <label class="toggle-checkbox-label">
+                                <input id="profile-downsize-enable" type="checkbox" />
+                                Enable Downsizing
+                            </label>
+                        </div>
+                        <div id="profile-downsize-options" class="profile-downsize-options hidden">
+                            <label class="ds-option-label"><input id="ds-classAccesses" type="checkbox" checked /> Keep Apex Classes</label>
+                            <label class="ds-option-label"><input id="ds-fieldPermissions" type="checkbox" checked /> Keep Fields</label>
+                            <label class="ds-option-label"><input id="ds-objectPermissions" type="checkbox" checked /> Keep Objects</label>
+                            <label class="ds-option-label"><input id="ds-pageAccesses" type="checkbox" checked /> Keep Visualforce</label>
+                            <label class="ds-option-label"><input id="ds-layoutAssignments" type="checkbox" checked /> Keep Layouts</label>
+                            <label class="ds-option-label"><input id="ds-recordTypeVisibilities" type="checkbox" checked /> Keep Record Types</label>
+                            <label class="ds-option-label"><input id="ds-tabVisibilities" type="checkbox" checked /> Keep Tabs</label>
+                            <label class="ds-option-label"><input id="ds-userPermissions" type="checkbox" checked /> Keep User Permissions</label>
                         </div>
                     </div>
                 </div>

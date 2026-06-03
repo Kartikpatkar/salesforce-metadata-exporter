@@ -100,9 +100,9 @@ body.dark-theme .auth-btn.secondary:hover {
   box-shadow: 0 4px 12px rgba(71, 85, 105, 0.5);
 }
 
-body.dark-theme .preset-btn {
+/* body.dark-theme .preset-btn {
   background: #10b981;
-}
+} */
 
 body.dark-theme .preset-btn:hover {
   background: #059669;
@@ -359,4 +359,83 @@ body.dark-theme .footer-logo {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Dark Theme - Presets Manager */
+body.dark-theme .preset-manager-container {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+body.dark-theme .preset-dropdown-select,
+body.dark-theme .preset-name-input {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+body.dark-theme .preset-dropdown-select:focus,
+body.dark-theme .preset-name-input:focus {
+  border-color: #8b9aee;
+}
+
+body.dark-theme .preset-action-btn.save {
+  background: rgba(139, 154, 238, 0.15);
+  color: #8b9aee;
+}
+
+body.dark-theme .preset-action-btn.save:hover {
+  background: rgba(139, 154, 238, 0.25);
+}
+
+body.dark-theme .preset-cancel-btn {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+body.dark-theme .preset-cancel-btn:hover {
+  background: #475569;
+}
+
+/* Dark Theme - Search Options & Preload */
+body.dark-theme .search-option-label {
+  color: #cbd5e1;
+}
+
+body.dark-theme .search-option-label:hover {
+  color: #ffffff;
+}
+
+body.dark-theme .search-option-label input[type="radio"] {
+  accent-color: #8b9aee;
+}
+
+body.dark-theme .preload-members-btn {
+  color: #8b9aee;
+}
+
+body.dark-theme .preload-members-btn:hover {
+  color: #9ca8f0;
+  background-color: rgba(139, 154, 238, 0.15);
+}
+
+/* Dark Theme - Profile Downsizing */
+body.dark-theme .profile-downsize-container {
+  border-top-color: #334155;
+}
+
+body.dark-theme .toggle-checkbox-label {
+  color: #e2e8f0;
+}
+
+body.dark-theme .toggle-checkbox-label input[type="checkbox"] {
+  accent-color: #8b9aee;
+}
+
+body.dark-theme .ds-option-label {
+  color: #cbd5e1;
+}
+
+body.dark-theme .ds-option-label input[type="checkbox"] {
+  accent-color: #8b9aee;
 }

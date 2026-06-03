@@ -5,7 +5,7 @@
 /* Preset Buttons */
 #preset-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -55,6 +55,15 @@
 .preset-btn.refresh:hover {
   background: #5a67d8;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.preset-btn.presets {
+  background: #4a5568;
+}
+
+.preset-btn.presets:hover {
+  background: #2d3748;
+  box-shadow: 0 4px 12px rgba(74, 85, 104, 0.4);
 }
 
 /* Member Buttons */

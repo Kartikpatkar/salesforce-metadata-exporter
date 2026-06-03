@@ -47,6 +47,27 @@ const elements = {
   presetSelectAll: document.getElementById('preset-select-all'),
   presetClear: document.getElementById('preset-clear'),
   presetRefresh: document.getElementById('preset-refresh'),
+  
+  // Presets elements
+  presetToggleManager: document.getElementById('preset-toggle-manager'),
+  presetManagerContainer: document.getElementById('preset-manager-container'),
+  presetDropdown: document.getElementById('preset-dropdown'),
+  deletePresetBtn: document.getElementById('delete-preset-btn'),
+  savePresetBtn: document.getElementById('save-preset-btn'),
+  presetNameInputContainer: document.getElementById('preset-name-input-container'),
+  presetNameInput: document.getElementById('preset-name-input'),
+  presetSaveConfirm: document.getElementById('preset-save-confirm'),
+  presetSaveCancel: document.getElementById('preset-save-cancel'),
+
+  // Search mode elements
+  searchModeTypes: document.getElementById('search-mode-types'),
+  searchModeMembers: document.getElementById('search-mode-members'),
+  preloadMembersBtn: document.getElementById('preload-members-btn'),
+
+  // Profile downsizing elements
+  profileDownsizeEnable: document.getElementById('profile-downsize-enable'),
+  profileDownsizeOptions: document.getElementById('profile-downsize-options'),
+  
   uploadPackageBtn: document.getElementById('upload-package-btn'),
   packageFileInput: document.getElementById('package-file-input'),
   pastePackageBtn: document.getElementById('paste-package-btn'),
@@ -99,6 +120,7 @@ async function initializeApp() {
 
     // Load user settings
     await loadExportTimeoutSetting();
+    await loadProfileDownsizeSettings();
     
     // Check Salesforce authentication via background worker
     await detectSalesforceOrg();
@@ -368,6 +390,9 @@ async function displayOrgInfo(org) {
   
   // Load dynamic metadata types from org
   await loadMetadataTypes();
+  
+  // Load saved presets for this org
+  await loadPresets();
 }
 
 // ========================================
@@ -713,6 +738,298 @@ async function saveSelections() {
   }
 }
 
+// ========================================
+// PRESETS MANAGER LOGIC
+// ========================================
+
+let currentPresets = {};
+
+/**
+ * Load saved presets for the current org
+ */
+async function loadPresets() {
+  if (!orgInfo || !orgInfo.instanceUrl) return;
+  const key = `metadataPresets_${orgInfo.instanceUrl}`;
+  try {
+    const result = await chrome.storage.local.get(key);
+    currentPresets = result[key] || {};
+    populatePresetDropdown();
+  } catch (error) {
+    console.error('[Presets] Failed to load presets:', error);
+  }
+}
+
+/**
+ * Populate the presets dropdown select options
+ */
+function populatePresetDropdown() {
+  if (!elements.presetDropdown) return;
+  
+  elements.presetDropdown.innerHTML = '<option value="">-- Apply Preset --</option>';
+  
+  Object.keys(currentPresets).sort().forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    elements.presetDropdown.appendChild(option);
+  });
+  
+  if (elements.deletePresetBtn) {
+    elements.deletePresetBtn.style.display = 'none';
+  }
+}
+
+/**
+ * Apply the selected preset checkboxes and member selections
+ */
+async function applyUserPreset(name) {
+  if (!name || !currentPresets[name]) {
+    if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'none';
+    return;
+  }
+  
+  if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'inline-block';
+  const preset = currentPresets[name];
+  
+  // Reset current selection
+  selectedMetadataTypes.clear();
+  selectedMembers.clear();
+  
+  // Clear checkboxes in UI
+  elements.metadataCheckboxes.forEach(checkbox => {
+    checkbox.checked = false;
+    const container = checkbox.closest('.metadata-type-container');
+    const badge = container?.querySelector('.member-count-badge');
+    if (badge) {
+      badge.textContent = '0';
+      badge.classList.add('hidden');
+    }
+    const membersContainer = container?.querySelector('.members-container');
+    if (membersContainer) {
+      membersContainer.innerHTML = '';
+      membersContainer.classList.add('hidden');
+    }
+    const arrow = container?.querySelector('.expand-arrow');
+    if (arrow) arrow.textContent = '▶';
+  });
+  
+  // Apply preset selections
+  const typesToSelect = preset.types || [];
+  typesToSelect.forEach(type => {
+    const checkbox = Array.from(elements.metadataCheckboxes).find(cb => cb.value === type);
+    if (checkbox) {
+      checkbox.checked = true;
+      selectedMetadataTypes.add(type);
+      
+      const members = preset.members?.[type] || '*';
+      if (members === '*') {
+        selectedMembers.set(type, '*');
+      } else if (Array.isArray(members)) {
+        selectedMembers.set(type, new Set(members));
+      } else {
+        selectedMembers.set(type, '*');
+      }
+      
+      updateMemberCountBadge(type);
+      updateRenderedMemberCheckboxes(type);
+    }
+  });
+  
+  // Re-run search/filtering if active
+  filterMetadataTypes();
+  
+  updateExportButtonState();
+  updatePackagePreview();
+  saveSelections();
+  
+  showSuccess(`Preset "${name}" applied!`);
+}
+
+/**
+ * Update member checkboxes in the DOM if a list is already expanded
+ */
+function updateRenderedMemberCheckboxes(metadataType) {
+  const membersListContainer = document.getElementById(`members-list-${metadataType}`);
+  if (!membersListContainer) return;
+  
+  const checkboxes = membersListContainer.querySelectorAll('.member-checkbox');
+  const selection = selectedMembers.get(metadataType);
+  
+  checkboxes.forEach(cb => {
+    if (selection === '*') {
+      cb.checked = true;
+    } else if (selection instanceof Set && selection.has(cb.value)) {
+      cb.checked = true;
+    } else if (Array.isArray(selection) && selection.includes(cb.value)) {
+      cb.checked = true;
+    } else {
+      cb.checked = false;
+    }
+  });
+}
+
+/**
+ * Save current selections under a preset name
+ */
+async function saveUserPreset(name) {
+  name = name.trim();
+  if (!name) {
+    showError('Preset name cannot be empty.');
+    return;
+  }
+  
+  if (selectedMetadataTypes.size === 0) {
+    showError('Select metadata types before saving a preset.');
+    return;
+  }
+  
+  if (!orgInfo || !orgInfo.instanceUrl) {
+    showError('No active Salesforce session.');
+    return;
+  }
+  
+  // Serialize Set values to standard arrays for JSON storage compatibility
+  const serializedMembers = {};
+  for (const [type, selection] of selectedMembers.entries()) {
+    if (selection === '*') {
+      serializedMembers[type] = '*';
+    } else if (selection instanceof Set) {
+      serializedMembers[type] = Array.from(selection);
+    } else if (Array.isArray(selection)) {
+      serializedMembers[type] = selection;
+    }
+  }
+  
+  const newPreset = {
+    types: Array.from(selectedMetadataTypes),
+    members: serializedMembers,
+    createdAt: Date.now()
+  };
+  
+  const key = `metadataPresets_${orgInfo.instanceUrl}`;
+  currentPresets[name] = newPreset;
+  
+  try {
+    await chrome.storage.local.set({ [key]: currentPresets });
+    populatePresetDropdown();
+    if (elements.presetDropdown) elements.presetDropdown.value = name;
+    if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'inline-block';
+    
+    // Hide inline input
+    if (elements.presetNameInputContainer) elements.presetNameInputContainer.classList.add('hidden');
+    if (elements.presetNameInput) elements.presetNameInput.value = '';
+    
+    showSuccess(`Preset "${name}" saved!`);
+  } catch (error) {
+    console.error('[Presets] Failed to save preset:', error);
+    showError('Failed to save preset.');
+  }
+}
+
+/**
+ * Delete the currently selected preset
+ */
+async function deleteUserPreset() {
+  if (!elements.presetDropdown) return;
+  const name = elements.presetDropdown.value;
+  if (!name || !currentPresets[name]) return;
+  
+  if (!confirm(`Are you sure you want to delete the preset "${name}"?`)) {
+    return;
+  }
+  
+  delete currentPresets[name];
+  const key = `metadataPresets_${orgInfo.instanceUrl}`;
+  
+  try {
+    await chrome.storage.local.set({ [key]: currentPresets });
+    populatePresetDropdown();
+    showSuccess(`Preset "${name}" deleted.`);
+  } catch (error) {
+    console.error('[Presets] Failed to delete preset:', error);
+    showError('Failed to delete preset.');
+  }
+}
+
+// ========================================
+// PROFILE DOWNSIZING LOGIC
+// ========================================
+
+/**
+ * Load profile downsizing settings from chrome.storage.local
+ */
+async function loadProfileDownsizeSettings() {
+  try {
+    const result = await chrome.storage.local.get('profileDownsizeSettings');
+    const settings = result.profileDownsizeSettings || {
+      enabled: false,
+      keepClassAccesses: true,
+      keepFieldPermissions: true,
+      keepObjectPermissions: true,
+      keepPageAccesses: true,
+      keepLayoutAssignments: true,
+      keepRecordTypeVisibilities: true,
+      keepTabVisibilities: true,
+      keepUserPermissions: true
+    };
+    
+    if (elements.profileDownsizeEnable) {
+      elements.profileDownsizeEnable.checked = settings.enabled;
+      toggleProfileDownsizeOptions(settings.enabled);
+    }
+    
+    const options = [
+      'classAccesses', 'fieldPermissions', 'objectPermissions', 'pageAccesses',
+      'layoutAssignments', 'recordTypeVisibilities', 'tabVisibilities', 'userPermissions'
+    ];
+    
+    options.forEach(opt => {
+      const el = document.getElementById(`ds-${opt}`);
+      if (el) {
+        el.checked = settings[`keep${opt.charAt(0).toUpperCase() + opt.slice(1)}`] !== false;
+      }
+    });
+  } catch (error) {
+    console.error('[App] Failed to load profile downsize settings:', error);
+  }
+}
+
+/**
+ * Save profile downsizing settings to chrome.storage.local
+ */
+async function saveProfileDownsizeSettings() {
+  try {
+    const settings = {
+      enabled: elements.profileDownsizeEnable ? elements.profileDownsizeEnable.checked : false,
+      keepClassAccesses: document.getElementById('ds-classAccesses')?.checked !== false,
+      keepFieldPermissions: document.getElementById('ds-fieldPermissions')?.checked !== false,
+      keepObjectPermissions: document.getElementById('ds-objectPermissions')?.checked !== false,
+      keepPageAccesses: document.getElementById('ds-pageAccesses')?.checked !== false,
+      keepLayoutAssignments: document.getElementById('ds-layoutAssignments')?.checked !== false,
+      keepRecordTypeVisibilities: document.getElementById('ds-recordTypeVisibilities')?.checked !== false,
+      keepTabVisibilities: document.getElementById('ds-tabVisibilities')?.checked !== false,
+      keepUserPermissions: document.getElementById('ds-userPermissions')?.checked !== false
+    };
+    
+    await chrome.storage.local.set({ profileDownsizeSettings: settings });
+    console.log('[App] Saved profile downsize settings:', settings);
+  } catch (error) {
+    console.error('[App] Failed to save profile downsize settings:', error);
+  }
+}
+
+/**
+ * Toggle the visibility of the profile downsizing options grid
+ */
+function toggleProfileDownsizeOptions(visible) {
+  if (!elements.profileDownsizeOptions) return;
+  if (visible) {
+    elements.profileDownsizeOptions.classList.remove('hidden');
+  } else {
+    elements.profileDownsizeOptions.classList.add('hidden');
+  }
+}
+
 /**
  * Handle metadata checkbox changes
  */
@@ -915,20 +1232,159 @@ function applyPreset(presetName) {
  */
 function filterMetadataTypes() {
   const searchTerm = elements.metadataSearch.value.toLowerCase().trim();
+  const searchMode = elements.searchModeMembers && elements.searchModeMembers.checked ? 'members' : 'types';
+  
   const metadataContainer = document.getElementById('metadata-types');
   const containers = metadataContainer.querySelectorAll('.metadata-type-container');
   
+  if (elements.preloadMembersBtn) {
+    if (searchMode === 'members' && searchTerm.length > 0) {
+      elements.preloadMembersBtn.classList.remove('hidden');
+    } else {
+      elements.preloadMembersBtn.classList.add('hidden');
+    }
+  }
+
   containers.forEach(container => {
     const typeNameElement = container.querySelector('.metadata-type-name');
-    if (typeNameElement) {
-      const metadataTypeName = typeNameElement.textContent.toLowerCase();
-      if (metadataTypeName.includes(searchTerm)) {
-        container.style.display = 'block';
+    if (!typeNameElement) return;
+    
+    const metadataTypeName = typeNameElement.textContent;
+    const metadataTypeNameLower = metadataTypeName.toLowerCase();
+    
+    const membersContainer = container.querySelector('.members-container');
+    const arrow = container.querySelector('.expand-arrow');
+    
+    if (searchMode === 'types' || !searchTerm) {
+      const match = metadataTypeNameLower.includes(searchTerm);
+      container.style.display = match ? 'block' : 'none';
+      
+      if (!searchTerm && membersContainer && arrow) {
+        const membersList = container.querySelector('.members-list');
+        if (membersList) {
+          const labels = membersList.querySelectorAll('.member-label');
+          labels.forEach(lbl => lbl.style.display = 'flex');
+          const mSearch = container.querySelector('.member-search');
+          if (mSearch) mSearch.value = '';
+          const mClear = container.querySelector('.clear-search-btn');
+          if (mClear) mClear.classList.add('hidden');
+        }
+      }
+    } else {
+      const cachedMembers = membersCache.get(metadataTypeName);
+      
+      if (cachedMembers) {
+        const matchingMembers = cachedMembers.filter(m => m.fullName.toLowerCase().includes(searchTerm));
+        
+        if (matchingMembers.length > 0) {
+          container.style.display = 'block';
+          
+          if (membersContainer && membersContainer.classList.contains('hidden')) {
+            membersContainer.classList.remove('hidden');
+            if (arrow) arrow.textContent = '▼';
+          }
+          
+          if (membersContainer && membersContainer.innerHTML === '') {
+            renderMembers(metadataTypeName, cachedMembers, membersContainer);
+          }
+          
+          filterMembers(metadataTypeName, searchTerm);
+          
+          const mSearch = container.querySelector('.member-search');
+          if (mSearch) {
+            mSearch.value = searchTerm;
+            toggleMemberClearButton(metadataTypeName);
+          }
+        } else {
+          container.style.display = 'none';
+        }
       } else {
-        container.style.display = 'none';
+        if (metadataTypeNameLower.includes(searchTerm)) {
+          container.style.display = 'block';
+        } else {
+          container.style.display = 'none';
+        }
       }
     }
   });
+}
+
+let preloadingMembers = false;
+
+/**
+ * Preload all members across all metadata types to enable complete global search
+ */
+async function preloadAllMembers() {
+  if (preloadingMembers) return;
+  preloadingMembers = true;
+  
+  if (elements.preloadMembersBtn) {
+    elements.preloadMembersBtn.textContent = 'Loading...';
+    elements.preloadMembersBtn.disabled = true;
+  }
+  
+  showInfo('Preloading all metadata components to enable global search. This may take a moment...');
+  
+  try {
+    const metadataContainer = document.getElementById('metadata-types');
+    const containers = metadataContainer.querySelectorAll('.metadata-type-container');
+    
+    const batchSize = 5;
+    const typesToLoad = [];
+    
+    containers.forEach(container => {
+      const typeNameElement = container.querySelector('.metadata-type-name');
+      if (typeNameElement) {
+        const typeName = typeNameElement.textContent;
+        if (!membersCache.has(typeName)) {
+          typesToLoad.push(typeName);
+        }
+      }
+    });
+    
+    let completed = 0;
+    for (let i = 0; i < typesToLoad.length; i += batchSize) {
+      const batch = typesToLoad.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (typeName) => {
+        try {
+          const response = await chrome.runtime.sendMessage({
+            type: 'GET_METADATA_MEMBERS',
+            payload: { orgInfo, metadataType: typeName }
+          });
+          if (response.success && response.members) {
+            membersCache.set(typeName, response.members);
+            
+            const container = Array.from(containers).find(c => c.querySelector('.metadata-type-name')?.textContent === typeName);
+            const badge = container?.querySelector('.member-count-badge');
+            if (badge) {
+              badge.textContent = response.members.length;
+              badge.classList.remove('hidden');
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to preload ${typeName}:`, err);
+        }
+      }));
+      completed += batch.length;
+      if (elements.preloadMembersBtn) {
+        elements.preloadMembersBtn.textContent = `Loading (${Math.round((completed / typesToLoad.length) * 100)}%)`;
+      }
+    }
+    
+    filterMetadataTypes();
+    showSuccess('All metadata components preloaded successfully!');
+    
+  } catch (error) {
+    console.error('Error preloading members:', error);
+    showError('Failed to preload all members.');
+  } finally {
+    preloadingMembers = false;
+    if (elements.preloadMembersBtn) {
+      elements.preloadMembersBtn.textContent = 'Preload All';
+      elements.preloadMembersBtn.disabled = false;
+      elements.preloadMembersBtn.classList.add('hidden');
+    }
+  }
 }
 
 /**
@@ -1673,6 +2129,15 @@ function attachEventListeners() {
     elements.metadataSearch.addEventListener('input', filterMetadataTypes);
     elements.metadataSearch.addEventListener('input', toggleClearButton);
   }
+  if (elements.searchModeTypes) {
+    elements.searchModeTypes.addEventListener('change', filterMetadataTypes);
+  }
+  if (elements.searchModeMembers) {
+    elements.searchModeMembers.addEventListener('change', filterMetadataTypes);
+  }
+  if (elements.preloadMembersBtn) {
+    elements.preloadMembersBtn.addEventListener('click', preloadAllMembers);
+  }
   
   // Clear search button
   const clearMetadataSearchBtn = document.getElementById('clear-metadata-search');
@@ -1690,6 +2155,64 @@ function attachEventListeners() {
   if (elements.presetRefresh) {
     elements.presetRefresh.addEventListener('click', () => loadMetadataTypes(true));
   }
+  
+  if (elements.presetToggleManager) {
+    elements.presetToggleManager.addEventListener('click', () => {
+      if (elements.presetManagerContainer) {
+        elements.presetManagerContainer.classList.toggle('hidden');
+      }
+    });
+  }
+  
+  // Presets Manager listeners
+  if (elements.presetDropdown) {
+    elements.presetDropdown.addEventListener('change', (e) => applyUserPreset(e.target.value));
+  }
+  if (elements.savePresetBtn) {
+    elements.savePresetBtn.addEventListener('click', () => {
+      if (elements.presetNameInputContainer) {
+        elements.presetNameInputContainer.classList.toggle('hidden');
+        if (!elements.presetNameInputContainer.classList.contains('hidden') && elements.presetNameInput) {
+          elements.presetNameInput.focus();
+        }
+      }
+    });
+  }
+  if (elements.presetSaveConfirm) {
+    elements.presetSaveConfirm.addEventListener('click', () => {
+      if (elements.presetNameInput) {
+        saveUserPreset(elements.presetNameInput.value);
+      }
+    });
+  }
+  if (elements.presetSaveCancel) {
+    elements.presetSaveCancel.addEventListener('click', () => {
+      if (elements.presetNameInputContainer) elements.presetNameInputContainer.classList.add('hidden');
+      if (elements.presetNameInput) elements.presetNameInput.value = '';
+    });
+  }
+  if (elements.deletePresetBtn) {
+    elements.deletePresetBtn.addEventListener('click', deleteUserPreset);
+  }
+  
+  // Profile Downsizing Settings listeners
+  if (elements.profileDownsizeEnable) {
+    elements.profileDownsizeEnable.addEventListener('change', (e) => {
+      toggleProfileDownsizeOptions(e.target.checked);
+      saveProfileDownsizeSettings();
+    });
+  }
+  
+  const dsOptions = [
+    'classAccesses', 'fieldPermissions', 'objectPermissions', 'pageAccesses',
+    'layoutAssignments', 'recordTypeVisibilities', 'tabVisibilities', 'userPermissions'
+  ];
+  dsOptions.forEach(opt => {
+    const el = document.getElementById(`ds-${opt}`);
+    if (el) {
+      el.addEventListener('change', saveProfileDownsizeSettings);
+    }
+  });
   
   // Upload package.xml button
   if (elements.uploadPackageBtn) {
