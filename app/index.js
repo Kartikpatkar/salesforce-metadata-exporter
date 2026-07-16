@@ -62,6 +62,7 @@ const elements = {
   // Search mode elements
   searchModeTypes: document.getElementById('search-mode-types'),
   searchModeMembers: document.getElementById('search-mode-members'),
+  cliCompatibleOnly: document.getElementById('cli-compatible-only'),
   preloadMembersBtn: document.getElementById('preload-members-btn'),
 
   // Profile downsizing elements
@@ -115,6 +116,273 @@ let exportInProgress = false;
 // Export polling settings
 const DEFAULT_EXPORT_TIMEOUT_MINUTES = 30;
 let exportTimeoutMinutes = DEFAULT_EXPORT_TIMEOUT_MINUTES;
+
+// Known CLI-safe metadata types
+const CLI_SAFE_TYPES = new Set([
+  "AcctMgrTargetSettings",
+  "ActionLauncherItemDef",
+  "ActionLinkGroupTemplate",
+  "ActionPlanTemplate",
+  "ActivationPlatform",
+  "AdvAccountForecastSet",
+  "AdvAcctForecastDimSource",
+  "AdvAcctForecastPeriodGroup",
+  "AIApplication",
+  "AIApplicationConfig",
+  "AnalyticSnapshot",
+  "AnimationRule",
+  "ApexClass",
+  "ApexComponent",
+  "ApexEmailNotifications",
+  "ApexPage",
+  "ApexTestSuite",
+  "ApexTrigger",
+  "ApplicationSubtypeDefinition",
+  "AppMenu",
+  "ApprovalProcess",
+  "AssignmentRules",
+  "Audience",
+  "AuraDefinitionBundle",
+  "AuthProvider",
+  "AutoResponseRules",
+  "BatchCalcJobDefinition",
+  "BatchProcessJobDefinition",
+  "BlacklistedConsumer",
+  "BrandingSet",
+  "BriefcaseDefinition",
+  "BusinessProcessTypeDefinition",
+  "CallCenter",
+  "CallCenterRoutingMap",
+  "CallCoachingMediaProvider",
+  "CampaignInfluenceModel",
+  "CanvasMetadata",
+  "CaseSubjectParticle",
+  "Certificate",
+  "ChannelLayout",
+  "ChatterExtension",
+  "CleanDataService",
+  "CMSConnectSource",
+  "Community",
+  "CommunityTemplateDefinition",
+  "CommunityThemeDefinition",
+  "ConnectedApp",
+  "ContentAsset",
+  "ConversationChannelDefinition",
+  "ConversationMessageDefinition",
+  "ConversationVendorInfo",
+  "CorsWhitelistOrigin",
+  "CspTrustedSite",
+  "CustomApplication",
+  "CustomApplicationComponent",
+  "CustomFeedFilter",
+  "CustomHelpMenuSection",
+  "CustomIndex",
+  "CustomLabels",
+  "CustomMetadata",
+  "CustomNotificationType",
+  "CustomObject",
+  "CustomObjectTranslation",
+  "CustomPageWebLink",
+  "CustomPermission",
+  "CustomSite",
+  "CustomTab",
+  "Dashboard",
+  "DataCalcInsightTemplate",
+  "DataCategoryGroup",
+  "DataConnectorIngestApi",
+  "DataConnectorS3",
+  "DataKitObjectTemplate",
+  "DataPackageKitDefinition",
+  "DataPackageKitObject",
+  "DataSource",
+  "DataSourceBundleDefinition",
+  "DataSourceObject",
+  "DataSourceTenant",
+  "DataSrcDataModelFieldMap",
+  "DataStreamDefinition",
+  "DataStreamTemplate",
+  "DataWeaveResource",
+  "DecisionMatrixDefinition",
+  "DecisionMatrixDefinitionVersion",
+  "DecisionTable",
+  "DecisionTableDatasetLink",
+  "DelegateGroup",
+  "DigitalExperienceBundle",
+  "DigitalExperienceConfig",
+  "Document",
+  "DocumentCategory",
+  "DocumentCategoryDocumentType",
+  "DocumentGenerationSetting",
+  "DocumentType",
+  "DuplicateRule",
+  "EclairGeoData",
+  "EmailServicesFunction",
+  "EmailTemplate",
+  "EmbeddedServiceBranding",
+  "EmbeddedServiceConfig",
+  "EmbeddedServiceFlowConfig",
+  "EmbeddedServiceMenuSettings",
+  "EntitlementProcess",
+  "EntitlementTemplate",
+  "EscalationRules",
+  "ESignatureConfig",
+  "ESignatureEnvelopeConfig",
+  "EventRelayConfig",
+  "ExperienceBundle",
+  "ExperiencePropertyTypeBundle",
+  "ExplainabilityActionDefinition",
+  "ExplainabilityActionVersion",
+  "ExplainabilityMsgTemplate",
+  "ExpressionSetDefinition",
+  "ExpressionSetDefinitionVersion",
+  "ExpressionSetMessageToken",
+  "ExpressionSetObjectAlias",
+  "ExternalAIModel",
+  "ExternalClientApplication",
+  "ExternalCredential",
+  "ExternalDataConnector",
+  "ExternalDataSource",
+  "ExternalServiceRegistration",
+  "ExtlClntAppConfigurablePolicies",
+  "ExtlClntAppGlobalOauthSettings",
+  "ExtlClntAppOauthConfigurablePolicies",
+  "ExtlClntAppOauthSettings",
+  "FieldRestrictionRule",
+  "FieldSrcTrgtRelationship",
+  "FlexiPage",
+  "Flow",
+  "FlowDefinition",
+  "FlowTest",
+  "ForecastingFilter",
+  "ForecastingFilterCondition",
+  "ForecastingSourceDefinition",
+  "ForecastingType",
+  "ForecastingTypeSource",
+  "GatewayProviderPaymentMethodType",
+  "GlobalValueSet",
+  "GlobalValueSetTranslation",
+  "Group",
+  "HomePageComponent",
+  "HomePageLayout",
+  "Icon",
+  "IframeWhiteListUrlSettings",
+  "InboundNetworkConnection",
+  "InstalledPackage",
+  "IntegrationProviderDef",
+  "InternalDataConnector",
+  "IPAddressRange",
+  "KeywordList",
+  "Layout",
+  "LeadConvertSettings",
+  "Letterhead",
+  "LightningComponentBundle",
+  "LightningExperienceTheme",
+  "LightningMessageChannel",
+  "LightningOnboardingConfig",
+  "LiveChatSensitiveDataRule",
+  "ManagedContentType",
+  "ManagedTopics",
+  "MarketSegmentDefinition",
+  "MatchingRules",
+  "MessagingChannel",
+  "MilestoneType",
+  "MktCalcInsightObjectDef",
+  "MktDataConnection",
+  "MktDataConnectionSrcParam",
+  "MktDatalakeSrcKeyQualifier",
+  "MktDataTranObject",
+  "MLDataDefinition",
+  "MLPredictionDefinition",
+  "MLRecommendationDefinition",
+  "MobileApplicationDetail",
+  "MobileSecurityAssignment",
+  "MobileSecurityPolicy",
+  "MobSecurityCertPinConfig",
+  "ModerationRule",
+  "MutingPermissionSet",
+  "MyDomainDiscoverableLogin",
+  "NamedCredential",
+  "NavigationMenu",
+  "Network",
+  "NetworkBranding",
+  "NotificationTypeConfig",
+  "OauthCustomScope",
+  "ObjectHierarchyRelationship",
+  "ObjectSourceTargetMap",
+  "OmniDataTransform",
+  "OmniIntegrationProcedure",
+  "OmniInteractionAccessConfig",
+  "OmniInteractionConfig",
+  "OmniScript",
+  "OmniSupervisorConfig",
+  "OmniUiCard",
+  "OutboundNetworkConnection",
+  "PathAssistant",
+  "PaymentGatewayProvider",
+  "PermissionSet",
+  "PermissionSetGroup",
+  "PersonAccountOwnerPowerUser",
+  "PipelineInspMetricConfig",
+  "PlatformCachePartition",
+  "PlatformEventChannel",
+  "PlatformEventChannelMember",
+  "PlatformEventSubscriberConfig",
+  "PortalDelegablePermissionSet",
+  "PostTemplate",
+  "PresenceDeclineReason",
+  "PresenceUserConfig",
+  "ProcessFlowMigration",
+  "ProductSpecificationRecType",
+  "ProductSpecificationType",
+  "Profile",
+  "ProfilePasswordPolicy",
+  "ProfileSessionSetting",
+  "Prompt",
+  "Queue",
+  "QueueRoutingConfig",
+  "QuickAction",
+  "RecAlrtDataSrcExpSetDef",
+  "RecommendationStrategy",
+  "RecordActionDeployment",
+  "RecordAlertCategory",
+  "RecordAlertDataSource",
+  "RecordAlertTemplate",
+  "RedirectWhitelistUrl",
+  "RelationshipGraphDefinition",
+  "RemoteSiteSetting",
+  "Report",
+  "ReportType",
+  "RestrictionRule",
+  "Role",
+  "SalesAgreementSettings",
+  "SamlSsoConfig",
+  "SchedulingObjective",
+  "SchedulingRule",
+  "Scontrol",
+  "SearchCustomization",
+  "ServiceAISetupDefinition",
+  "ServiceAISetupField",
+  "ServiceChannel",
+  "ServicePresenceStatus",
+  "Settings",
+  "SharingRules",
+  "SharingSet",
+  "SiteDotCom",
+  "Skill",
+  "SkillType",
+  "StandardValueSet",
+  "StandardValueSetTranslation",
+  "StaticResource",
+  "StreamingAppDataConnector",
+  "SynonymDictionary",
+  "TimelineObjectDefinition",
+  "TimeSheetTemplate",
+  "TopicsForObjects",
+  "UserAccessPolicy",
+  "UserCriteria",
+  "UserProvisioningConfig",
+  "Workflow"
+]);
 
 // ========================================
 // INITIALIZATION
@@ -1479,7 +1747,13 @@ function filterMetadataTypes() {
     const arrow = container.querySelector('.expand-arrow');
     
     if (searchMode === 'types' || !searchTerm) {
-      const match = metadataTypeNameLower.includes(searchTerm);
+      let match = metadataTypeNameLower.includes(searchTerm);
+      
+      // Filter out CLI unsupported types if checkbox is checked
+      if (elements.cliCompatibleOnly && elements.cliCompatibleOnly.checked && !CLI_SAFE_TYPES.has(metadataTypeName)) {
+        match = false;
+      }
+      
       container.style.display = match ? 'block' : 'none';
       
       if (!searchTerm && membersContainer && arrow) {
@@ -1676,10 +1950,15 @@ function selectAllMetadata() {
   
   checkboxes.forEach(checkbox => {
     // Only select visible checkboxes (based on search filter)
-    const label = checkbox.closest('label');
-    if (label && label.style.display !== 'none') {
+    const container = checkbox.closest('.metadata-type-container');
+    if (container && container.style.display !== 'none') {
       checkbox.checked = true;
       selectedMetadataTypes.add(checkbox.value);
+      
+      if (!selectedMembers.has(checkbox.value)) {
+        selectedMembers.set(checkbox.value, '*');
+        updateMemberCountBadge(checkbox.value);
+      }
     }
   });
   
@@ -2566,11 +2845,18 @@ function attachEventListeners() {
     elements.metadataSearch.addEventListener('input', filterMetadataTypes);
     elements.metadataSearch.addEventListener('input', toggleClearButton);
   }
-  if (elements.searchModeTypes) {
-    elements.searchModeTypes.addEventListener('change', filterMetadataTypes);
-  }
-  if (elements.searchModeMembers) {
-    elements.searchModeMembers.addEventListener('change', filterMetadataTypes);
+  elements.searchModeTypes.addEventListener('change', () => {
+    elements.metadataSearch.value = '';
+    filterMetadataTypes();
+  });
+  
+  elements.searchModeMembers.addEventListener('change', () => {
+    elements.metadataSearch.value = '';
+    filterMetadataTypes();
+  });
+
+  if (elements.cliCompatibleOnly) {
+    elements.cliCompatibleOnly.addEventListener('change', filterMetadataTypes);
   }
   if (elements.preloadMembersBtn) {
     elements.preloadMembersBtn.addEventListener('click', preloadAllMembers);
