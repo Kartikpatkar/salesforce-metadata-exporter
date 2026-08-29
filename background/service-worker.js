@@ -341,7 +341,7 @@ async function handleStartExport(payload, sendResponse) {
   try {
     console.log('[Service Worker] Starting export workflow...', payload);
     
-    const { orgInfo, typesWithMembers } = payload;
+    const { orgInfo, typesWithMembers, skipDownload } = payload;
     
     // Validate payload
     if (!orgInfo || !orgInfo.sessionId) {
@@ -365,6 +365,7 @@ async function handleStartExport(payload, sendResponse) {
       status: 'InProgress',
       startTime: Date.now(),
       downloaded: false,  // Track if already downloaded
+      skipDownload: !!skipDownload,
       selectedTypes: typesWithMembers.map(t => t.name)
     };
     await storeExportState(exportStateObj);
@@ -442,10 +443,13 @@ function startBackgroundExportPolling(retrieveId, orgInfo) {
         if (retrieveStatus.success && retrieveStatus.zipFile) {
           if (!state.downloaded) {
             state.downloaded = true;
+            state.zipFile = retrieveStatus.zipFile;
             await storeExportState(state);
-            console.log('[Service Worker] Triggering background ZIP download');
-            await downloadZipFile(retrieveStatus.zipFile, state);
-            await clearExportState();
+            if (!state.skipDownload) {
+              console.log('[Service Worker] Triggering background ZIP download');
+              await downloadZipFile(retrieveStatus.zipFile, state);
+              await clearExportState();
+            }
             notifyPopup('EXPORT_COMPLETE', { success: true });
           }
         } else {
@@ -603,15 +607,27 @@ async function handleGetExportStatus(sendResponse) {
     state.status = retrieveStatus.state;
     state.done = retrieveStatus.done;
     
-    // If complete, trigger download
+    // If complete, return status and zipFile
     if (retrieveStatus.done && retrieveStatus.success && retrieveStatus.zipFile) {
-      // Mark downloaded FIRST to prevent any race condition
       state.downloaded = true;
+      state.zipFile = retrieveStatus.zipFile;
       await storeExportState(state);
       
-      console.log('[Service Worker] Triggering download from GET_EXPORT_STATUS');
-      await downloadZipFile(retrieveStatus.zipFile, state);
-      await clearExportState();
+      if (!state.skipDownload) {
+        console.log('[Service Worker] Triggering download from GET_EXPORT_STATUS');
+        await downloadZipFile(retrieveStatus.zipFile, state);
+        await clearExportState();
+      }
+
+      sendResponse({
+        success: true,
+        status: 'Succeeded',
+        progress: 100,
+        message: 'Export complete!',
+        done: true,
+        zipFile: retrieveStatus.zipFile
+      });
+      return;
     } else {
       await storeExportState(state);
     }
