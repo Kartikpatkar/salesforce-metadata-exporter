@@ -137,10 +137,28 @@ export class GitHubConnector {
    * @returns {Promise<string>} Blob SHA
    */
   async createBlob(owner, repo, content, encoding = 'utf-8') {
+    let finalContent = content;
+    let finalEncoding = encoding;
+
+    if (encoding === 'utf-8' && typeof content === 'string') {
+      try {
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(content);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        finalContent = btoa(binary);
+        finalEncoding = 'base64';
+      } catch (e) {
+        // Fallback to raw content if conversion fails
+      }
+    }
+
     const res = await fetch(`${this.baseUrl}/repos/${owner}/${repo}/git/blobs`, {
       method: 'POST',
       headers: this._getHeaders(),
-      body: JSON.stringify({ content, encoding })
+      body: JSON.stringify({ content: finalContent, encoding: finalEncoding })
     });
 
     if (!res.ok) throw new Error(`Failed to create blob (${res.status})`);
