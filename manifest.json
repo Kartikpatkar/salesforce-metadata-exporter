@@ -46,7 +46,8 @@
     "downloads",
     "activeTab",
     "cookies",
-    "alarms"
+    "alarms",
+    "identity"
   ],
 
   "host_permissions": [
@@ -58,7 +59,9 @@
     "https://*.salesforce-setup.com/*",
     "https://*.my.salesforce-setup.com/*",
     "https://login.salesforce.com/*",
-    "https://test.salesforce.com/*"
+    "https://test.salesforce.com/*",
+    "https://api.github.com/*",
+    "https://github.com/*"
   ],
 
   "content_security_policy": {

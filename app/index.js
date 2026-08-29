@@ -19,10 +19,13 @@ import { PresetsManager } from './modules/presets-manager.js';
 import { highlightXml, updatePreviewTabBadges } from './modules/xml-highlighter.js';
 import { ExportController } from './modules/export-controller.js';
 import { ExportHistory } from './modules/export-history.js';
+import { GitHubConnector } from './modules/github-connector.js';
+import { ZipHandler } from '../lib/zip-handler.js';
 
 const presetsManager = new PresetsManager();
 const exportController = new ExportController();
 const exportHistory = new ExportHistory();
+const githubConnector = new GitHubConnector();
 
 // ========================================
 // DOM ELEMENT REFERENCES
@@ -112,7 +115,25 @@ const elements = {
   exportHistoryOverlay: document.getElementById('export-history-overlay'),
   exportHistoryClose: document.getElementById('export-history-close'),
   exportHistoryList: document.getElementById('export-history-list'),
-  clearHistoryBtn: document.getElementById('clear-history-btn')
+  clearHistoryBtn: document.getElementById('clear-history-btn'),
+
+  // GitHub integration elements
+  githubBtn: document.getElementById('github-btn'),
+  pushGithubBtn: document.getElementById('push-github-btn'),
+  githubModal: document.getElementById('github-modal'),
+  githubModalOverlay: document.getElementById('github-modal-overlay'),
+  githubModalClose: document.getElementById('github-modal-close'),
+  githubLoginBtn: document.getElementById('github-login-btn'),
+  githubPatInput: document.getElementById('github-pat-input'),
+  githubVerifyTokenBtn: document.getElementById('github-verify-token-btn'),
+  githubTokenStatus: document.getElementById('github-token-status'),
+  githubRepoSelect: document.getElementById('github-repo-select'),
+  githubBranchSelect: document.getElementById('github-branch-select'),
+  githubNewBranchContainer: document.getElementById('github-new-branch-container'),
+  githubNewBranchInput: document.getElementById('github-new-branch-input'),
+  githubCreateBranchBtn: document.getElementById('github-create-branch-btn'),
+  githubTargetFolder: document.getElementById('github-target-folder'),
+  githubSaveSettingsBtn: document.getElementById('github-save-settings-btn')
 };
 
 // ========================================
@@ -121,6 +142,7 @@ const elements = {
 
 let orgInfo = null;
 let selectedMetadataTypes = new Set();
+let isGitHubPushInProgress = false;
 // Store selected members per metadata type
 // Structure: Map<metadataType, Set<memberName> | '*'>
 // '*' means all members (wildcard)
@@ -711,6 +733,9 @@ async function displayOrgInfo(org) {
   
   // Load saved presets for this org
   await loadPresets();
+
+  // Load GitHub settings for this org
+  await loadGitHubSettings();
 }
 
 // ========================================
@@ -791,7 +816,7 @@ function renderMetadataTypes(metadataTypes) {
 
     const title = document.createElement('span');
     title.className = 'category-title';
-    title.textContent = `${category.icon} ${category.name}`;
+    title.textContent = category.name;
 
     const badge = document.createElement('span');
     badge.className = 'category-badge';
@@ -2592,6 +2617,46 @@ function getChecklistMessage(status, elapsedSeconds) {
 }
 
 /**
+ * Generate step-by-step checklist message for GitHub push progress
+ */
+function getGitHubChecklistMessage(step, elapsedSeconds = 0, fileCount = 0) {
+  const timeStr = elapsedSeconds > 0 
+    ? ` (${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s)`
+    : '';
+
+  const ownerRepoBranch = `${githubConfig.owner}/${githubConfig.repo}:${githubConfig.branch}`;
+
+  let step1 = '✓ Prepared package.xml';
+  let step2 = '✓ Retreived metadata payload';
+  let step3 = '✓ Unpacked XML components';
+  let step4 = `✓ Pushed to GitHub (${ownerRepoBranch})`;
+
+  if (step === 'retrieve') {
+    step1 = '✓ Prepared package.xml';
+    step2 = `● Retreiving metadata from Salesforce${timeStr}`;
+    step3 = '○ Unpacking XML components';
+    step4 = `○ Committing to GitHub (${ownerRepoBranch})`;
+  } else if (step === 'unpack') {
+    step1 = '✓ Prepared package.xml';
+    step2 = '✓ Retreived metadata payload';
+    step3 = '● Unpacking XML components';
+    step4 = `○ Committing to GitHub (${ownerRepoBranch})`;
+  } else if (step === 'commit') {
+    step1 = '✓ Prepared package.xml';
+    step2 = '✓ Retreived metadata payload';
+    step3 = `✓ Unpacked ${fileCount || ''} XML components`;
+    step4 = `● Committing ${fileCount || ''} file(s) to GitHub (${ownerRepoBranch})${timeStr}`;
+  } else if (step === 'done') {
+    step1 = '✓ Prepared package.xml';
+    step2 = '✓ Retreived metadata payload';
+    step3 = `✓ Unpacked ${fileCount || ''} XML components`;
+    step4 = `✓ Pushed ${fileCount || ''} file(s) to GitHub (${ownerRepoBranch})`;
+  }
+
+  return `${step1}\n${step2}\n${step3}\n${step4}`;
+}
+
+/**
  * Cancel the active export process
  */
 async function cancelExport() {
@@ -2607,7 +2672,7 @@ async function cancelExport() {
     
     if (response.success) {
       exportInProgress = false;
-      elements.exportBtn.innerHTML = '🚀 Export Metadata';
+      elements.exportBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="assets/icons.svg#icon-download"></use></svg><span>Export Metadata</span>';
       elements.exportBtn.classList.remove('cancel-btn');
       hideExportProgress();
       showSuccess('Export stopped by user.');
@@ -2754,6 +2819,7 @@ async function doStartExport() {
     let totalMemberCount = 0;
     typesWithMembers.forEach(t => { totalMemberCount += t.members.length; });
     await exportHistory.logExport({
+      exportType: 'zip',
       instanceUrl: orgInfo?.instance || orgInfo?.url || 'Salesforce',
       typeCount: selectedMetadataTypes.size,
       memberCount: totalMemberCount,
@@ -2779,7 +2845,7 @@ async function doStartExport() {
     }
   } finally {
     exportInProgress = false;
-    elements.exportBtn.innerHTML = '🚀 Export Metadata';
+    elements.exportBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="assets/icons.svg#icon-download"></use></svg><span>Export Metadata</span>';
     elements.exportBtn.classList.remove('cancel-btn');
     hideExportProgress();
   }
@@ -2843,10 +2909,10 @@ let progressToast = null;
  * @param {string} message - Status message to display
  * @param {number} progress - Progress value (0-100)
  */
-function showExportProgress(message, progress = 0) {
+function showExportProgress(message, progress = 0, isGitHubPush = false) {
   if (progress === 100) {
     if (progressToast) {
-      updateToast(progressToast, 'Export Complete', message, 'success');
+      updateToast(progressToast, isGitHubPush ? 'GitHub Push Complete' : 'Export Complete', message, 'success');
       dismissToast(progressToast, 2500);
       progressToast = null;
     } else {
@@ -2854,20 +2920,32 @@ function showExportProgress(message, progress = 0) {
     }
   } else {
     if (!progressToast) {
-      progressToast = showToast('Export Progress', message, 'info', true);
+      progressToast = showToast(isGitHubPush ? 'GitHub Push Progress' : 'Export Progress', message, 'info', true);
     } else {
-      updateToast(progressToast, 'Export Progress', message);
+      updateToast(progressToast, isGitHubPush ? 'GitHub Push Progress' : 'Export Progress', message);
     }
   }
   
+  if (isGitHubPush) {
+    if (elements.pushGithubBtn) {
+      elements.pushGithubBtn.disabled = true;
+      if (progress === 100) {
+        elements.pushGithubBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><use href="assets/icons.svg#icon-github"></use></svg><span>Push to GitHub</span>';
+      } else {
+        elements.pushGithubBtn.innerHTML = `<span>Pushing (${progress}%)...</span>`;
+      }
+    }
+    return;
+  }
+
   if (progress === 100) {
-    elements.exportBtn.innerHTML = '🚀 Export Metadata';
+    elements.exportBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="assets/icons.svg#icon-download"></use></svg><span>Export Metadata</span>';
     elements.exportBtn.classList.remove('cancel-btn');
     updateExportButtonState();
   } else {
-    elements.exportBtn.innerHTML = '❌ Stop Export';
+    elements.exportBtn.innerHTML = 'Stop Export';
     elements.exportBtn.classList.add('cancel-btn');
-    elements.exportBtn.disabled = false; // Keep it enabled so user can cancel!
+    elements.exportBtn.disabled = false;
   }
 }
 
@@ -2921,6 +2999,9 @@ function updateExportButtonState() {
     !exportInProgress;
   
   elements.exportBtn.disabled = !canExport;
+  if (elements.pushGithubBtn) {
+    elements.pushGithubBtn.disabled = !canExport;
+  }
 }
 
 // ========================================
@@ -2939,26 +3020,30 @@ async function openExportHistoryModal() {
   if (elements.exportHistoryList) {
     elements.exportHistoryList.innerHTML = '';
     if (history.length === 0) {
-      elements.exportHistoryList.innerHTML = '<li style="color: var(--text-muted); text-align: center; padding: 16px;">No export history recorded yet</li>';
+      elements.exportHistoryList.innerHTML = '<tr><td colspan="4" style="color: var(--text-muted); text-align: center; padding: 20px;">No export history recorded yet</td></tr>';
       return;
     }
 
     history.forEach(item => {
-      const li = document.createElement('li');
-      const dateStr = new Date(item.timestamp).toLocaleString();
-      li.style.padding = '8px 12px';
-      li.style.borderBottom = '1px solid var(--border-color)';
-      li.style.listStyle = 'none';
-      li.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <strong style="color: var(--text-primary);">${item.instanceUrl}</strong>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">${dateStr}</span>
-        </div>
-        <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px;">
-          Types: <strong>${item.typeCount}</strong> | Components: <strong>${item.memberCount}</strong> ${item.destructiveCount > 0 ? `<span style="color: var(--brand-danger);">| Deletions: ${item.destructiveCount}</span>` : ''}
-        </div>
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--border-color)';
+      const dateStr = new Date(item.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+      const isGitHub = item.exportType === 'github' || (item.instanceUrl && item.instanceUrl.includes('/'));
+
+      const badgeHtml = isGitHub
+        ? `<span style="background: rgba(36, 41, 46, 0.2); color: var(--text-primary); border: 1px solid var(--border-color); padding: 3px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><use href="assets/icons.svg#icon-github"></use></svg> GitHub</span>`
+        : `<span style="background: rgba(46, 160, 67, 0.15); color: #2ea043; border: 1px solid rgba(46, 160, 67, 0.3); padding: 3px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="assets/icons.svg#icon-download"></use></svg> ZIP</span>`;
+
+      tr.innerHTML = `
+        <td style="padding: 10px 14px; white-space: nowrap; color: var(--text-muted); font-size: 0.8125rem;">${dateStr}</td>
+        <td style="padding: 10px 14px;">${badgeHtml}</td>
+        <td style="padding: 10px 14px; color: var(--text-primary); font-weight: 500; font-family: monospace; font-size: 0.8125rem;">${item.instanceUrl || 'Salesforce Org'}</td>
+        <td style="padding: 10px 14px; text-align: center; color: var(--text-secondary);">
+          <strong>${item.typeCount}</strong> types (${item.memberCount} items)
+          ${item.destructiveCount > 0 ? `<span style="color: var(--brand-danger); margin-left: 4px;">(${item.destructiveCount} del)</span>` : ''}
+        </td>
       `;
-      elements.exportHistoryList.appendChild(li);
+      elements.exportHistoryList.appendChild(tr);
     });
   }
 }
@@ -2970,6 +3055,372 @@ function closeExportHistoryModal() {
   if (!elements.exportHistoryModal) return;
   elements.exportHistoryModal.classList.add('hidden');
   document.body.style.overflow = '';
+}
+
+// ========================================
+// GITHUB INTEGRATION LOGIC
+// ========================================
+
+let githubConfig = {
+  token: '',
+  owner: '',
+  repo: '',
+  branch: '',
+  targetFolder: 'force-app/main/default'
+};
+
+function updateGitHubSyncDisplay() {
+  const el = document.getElementById('github-last-synced-val');
+  if (el) {
+    if (githubConfig.lastSynced) {
+      el.textContent = new Date(githubConfig.lastSynced).toLocaleString();
+    } else {
+      el.textContent = 'Never';
+    }
+  }
+}
+
+async function loadGitHubSettings() {
+  const result = await chrome.storage.local.get(['githubConfig', 'githubOrgConfigs']);
+  const globalConfig = result.githubConfig || {};
+  const orgConfigs = result.githubOrgConfigs || {};
+
+  const orgKey = orgInfo?.instance || 'default';
+  const orgSpecific = orgConfigs[orgKey] || {};
+
+  githubConfig = {
+    token: orgSpecific.token || globalConfig.token || '',
+    owner: orgSpecific.owner || globalConfig.owner || '',
+    repo: orgSpecific.repo || globalConfig.repo || '',
+    branch: orgSpecific.branch || globalConfig.branch || '',
+    targetFolder: orgSpecific.targetFolder || globalConfig.targetFolder || 'force-app/main/default',
+    lastSynced: orgSpecific.lastSynced || null
+  };
+
+  if (githubConfig.token) {
+    githubConnector.setToken(githubConfig.token);
+    if (elements.githubPatInput) elements.githubPatInput.value = githubConfig.token;
+    if (elements.githubTargetFolder) elements.githubTargetFolder.value = githubConfig.targetFolder || 'force-app/main/default';
+  }
+
+  updateGitHubSyncDisplay();
+}
+
+async function handleGitHubDeviceLogin() {
+  try {
+    const tokenUrl = 'https://github.com/settings/tokens/new?description=Salesforce+Metadata+Exporter&scopes=repo';
+    chrome.tabs.create({ url: tokenUrl });
+    showInfo('Opened GitHub token creation page with "repo" scope pre-filled. Click "Generate token" and paste the token below.');
+  } catch (err) {
+    showError('Failed to open GitHub token page: ' + err.message);
+  }
+}
+
+async function openGitHubModal() {
+  if (!elements.githubModal) return;
+  elements.githubModal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  await loadGitHubSettings();
+  if (githubConfig.token) {
+    await verifyAndLoadGitHubDetails();
+  }
+}
+
+function closeGitHubModal() {
+  if (!elements.githubModal) return;
+  elements.githubModal.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function verifyAndLoadGitHubDetails() {
+  const token = (elements.githubPatInput?.value || '').trim();
+  if (!token) {
+    showError('Please enter a GitHub Personal Access Token.');
+    return;
+  }
+
+  try {
+    if (elements.githubTokenStatus) elements.githubTokenStatus.textContent = 'Verifying token...';
+    const user = await githubConnector.verifyToken(token);
+    if (elements.githubTokenStatus) {
+      elements.githubTokenStatus.textContent = `Connected as ${user.login} (${user.scopes || 'repo scope'})`;
+      elements.githubTokenStatus.style.color = 'var(--brand-success)';
+    }
+
+    const repos = await githubConnector.fetchUserRepos();
+    if (elements.githubRepoSelect) {
+      elements.githubRepoSelect.disabled = false;
+      elements.githubRepoSelect.innerHTML = '<option value="">-- Select Repository --</option>';
+      repos.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = `${r.owner}/${r.name}`;
+        opt.textContent = `${r.fullName} ${r.private ? '🔒' : ''}`;
+        if (githubConfig.owner && githubConfig.repo && r.owner === githubConfig.owner && r.name === githubConfig.repo) {
+          opt.selected = true;
+        }
+        elements.githubRepoSelect.appendChild(opt);
+      });
+
+      if (elements.githubRepoSelect.value) {
+        await handleRepoSelectChange();
+      }
+    }
+    showSuccess(`GitHub token verified! Authenticated as ${user.login}`);
+  } catch (err) {
+    if (elements.githubTokenStatus) {
+      elements.githubTokenStatus.textContent = 'Verification failed: ' + err.message;
+      elements.githubTokenStatus.style.color = 'var(--brand-danger)';
+    }
+    showError('GitHub verification failed: ' + err.message);
+  }
+}
+
+async function handleRepoSelectChange() {
+  const val = elements.githubRepoSelect?.value;
+  if (!val) {
+    if (elements.githubBranchSelect) elements.githubBranchSelect.disabled = true;
+    return;
+  }
+
+  const [owner, repo] = val.split('/');
+  try {
+    let branches = await githubConnector.fetchBranches(owner, repo);
+    if (elements.githubBranchSelect) {
+      elements.githubBranchSelect.disabled = false;
+      elements.githubBranchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
+
+      if (!branches || branches.length === 0) {
+        branches = [{ name: 'main', sha: '' }];
+      }
+
+      let selectedAny = false;
+      branches.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.dataset.sha = b.sha;
+        opt.textContent = b.name;
+
+        if (githubConfig.branch && githubConfig.branch === b.name) {
+          opt.selected = true;
+          selectedAny = true;
+        }
+        elements.githubBranchSelect.appendChild(opt);
+      });
+
+      // Auto-select main, master, or first available branch if none pre-selected
+      if (!selectedAny && elements.githubBranchSelect.options.length > 1) {
+        const mainOpt = Array.from(elements.githubBranchSelect.options).find(o => o.value === 'main' || o.value === 'master') || elements.githubBranchSelect.options[1];
+        if (mainOpt) mainOpt.selected = true;
+      }
+
+      const createOpt = document.createElement('option');
+      createOpt.value = '__CREATE_NEW__';
+      createOpt.textContent = '+ Create New Branch...';
+      elements.githubBranchSelect.appendChild(createOpt);
+    }
+  } catch (err) {
+    showError('Failed to fetch branches: ' + err.message);
+  }
+}
+
+async function handleBranchSelectChange() {
+  const val = elements.githubBranchSelect?.value;
+  if (val === '__CREATE_NEW__') {
+    if (elements.githubNewBranchContainer) elements.githubNewBranchContainer.classList.remove('hidden');
+  } else {
+    if (elements.githubNewBranchContainer) elements.githubNewBranchContainer.classList.add('hidden');
+  }
+}
+
+async function handleCreateNewBranch() {
+  const repoVal = elements.githubRepoSelect?.value;
+  const newBranchName = (elements.githubNewBranchInput?.value || '').trim();
+
+  if (!repoVal || !newBranchName) {
+    showError('Please select a repository and enter a branch name.');
+    return;
+  }
+
+  const [owner, repo] = repoVal.split('/');
+  const firstBranchOpt = elements.githubBranchSelect?.querySelector('option[data-sha]');
+  const baseSha = firstBranchOpt ? firstBranchOpt.dataset.sha : null;
+
+  if (!baseSha) {
+    showError('Could not find base commit to branch off.');
+    return;
+  }
+
+  try {
+    await githubConnector.createBranch(owner, repo, newBranchName, baseSha);
+    showSuccess(`Branch '${newBranchName}' created successfully!`);
+
+    await handleRepoSelectChange();
+    if (elements.githubBranchSelect) elements.githubBranchSelect.value = newBranchName;
+    if (elements.githubNewBranchContainer) elements.githubNewBranchContainer.classList.add('hidden');
+  } catch (err) {
+    showError('Failed to create branch: ' + err.message);
+  }
+}
+
+async function saveGitHubSettings() {
+  const repoVal = elements.githubRepoSelect?.value;
+  const branchVal = elements.githubBranchSelect?.value;
+  const token = (elements.githubPatInput?.value || '').trim();
+  const targetFolder = (elements.githubTargetFolder?.value || '').trim();
+
+  if (!token || !repoVal || !branchVal || branchVal === '__CREATE_NEW__') {
+    showError('Please verify token, select a repository, and select a target branch.');
+    return;
+  }
+
+  const [owner, repo] = repoVal.split('/');
+  const orgKey = orgInfo?.instance || 'default';
+
+  githubConfig = {
+    ...githubConfig,
+    token,
+    owner,
+    repo,
+    branch: branchVal,
+    targetFolder
+  };
+
+  const result = await chrome.storage.local.get('githubOrgConfigs');
+  const orgConfigs = result.githubOrgConfigs || {};
+  orgConfigs[orgKey] = { ...githubConfig };
+
+  await chrome.storage.local.set({
+    githubConfig: { token, targetFolder },
+    githubOrgConfigs: orgConfigs
+  });
+
+  githubConnector.setToken(token);
+  updateGitHubSyncDisplay();
+  closeGitHubModal();
+  showSuccess(`Saved GitHub settings for ${orgKey}! (${owner}/${repo}:${branchVal})`);
+}
+
+async function handlePushToGitHub() {
+  if (!orgInfo) return;
+  await loadGitHubSettings();
+
+  if (!githubConfig.token || !githubConfig.owner || !githubConfig.repo || !githubConfig.branch) {
+    showInfo('Please configure your GitHub repository settings first.');
+    await openGitHubModal();
+    return;
+  }
+
+  try {
+    isGitHubPushInProgress = true;
+    exportInProgress = true;
+    updateExportButtonState();
+    if (elements.pushGithubBtn) {
+      elements.pushGithubBtn.disabled = true;
+      elements.pushGithubBtn.innerHTML = '<span>Pushing...</span>';
+    }
+    const startTime = Date.now();
+    showExportProgress(getGitHubChecklistMessage('retrieve', 0), 10, true);
+
+    const typesWithMembers = Array.from(selectedMetadataTypes).map(type => {
+      const members = selectedMembers.get(type);
+      let memberArray;
+      if (members === '*') {
+        memberArray = ['*'];
+      } else if (Array.isArray(members)) {
+        memberArray = members;
+      } else if (members instanceof Set) {
+        memberArray = Array.from(members);
+      } else {
+        memberArray = ['*'];
+      }
+      return { name: type, members: memberArray };
+    });
+
+    const response = await chrome.runtime.sendMessage({
+      type: 'START_EXPORT',
+      payload: { orgInfo, typesWithMembers, skipDownload: true }
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to retrieve metadata');
+    }
+
+    const zipBase64 = await new Promise((resolve, reject) => {
+      const timer = setInterval(async () => {
+        try {
+          const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+          showExportProgress(getGitHubChecklistMessage('retrieve', elapsedSeconds), 40, true);
+          const statusRes = await chrome.runtime.sendMessage({ type: 'GET_EXPORT_STATUS' });
+          if (statusRes && statusRes.done) {
+            clearInterval(timer);
+            if (statusRes.success && statusRes.zipFile) {
+              resolve(statusRes.zipFile);
+            } else {
+              reject(new Error(statusRes.message || 'Salesforce retrieve failed'));
+            }
+          }
+        } catch (e) {
+          clearInterval(timer);
+          reject(e);
+        }
+      }, 3000);
+    });
+
+    const elapsedUnpack = Math.floor((Date.now() - startTime) / 1000);
+    showExportProgress(getGitHubChecklistMessage('unpack', elapsedUnpack), 70, true);
+    const zipHandler = new ZipHandler();
+    const files = await zipHandler.extractZipFiles(zipBase64);
+
+    const elapsedCommit = Math.floor((Date.now() - startTime) / 1000);
+    showExportProgress(getGitHubChecklistMessage('commit', elapsedCommit, files.length), 85, true);
+    const commitResult = await githubConnector.commitFiles(
+      githubConfig.owner,
+      githubConfig.repo,
+      githubConfig.branch,
+      githubConfig.targetFolder,
+      files,
+      `Salesforce Metadata Backup (${orgInfo.instance || orgInfo.url}) - ${new Date().toISOString()}`
+    );
+
+    exportInProgress = false;
+    updateExportButtonState();
+
+    const elapsedTotal = Math.floor((Date.now() - startTime) / 1000);
+    showExportProgress(getGitHubChecklistMessage('done', elapsedTotal, files.length), 100, true);
+
+    // Save Last Synced date per org
+    const nowIso = new Date().toISOString();
+    githubConfig.lastSynced = nowIso;
+    const result = await chrome.storage.local.get('githubOrgConfigs');
+    const orgConfigs = result.githubOrgConfigs || {};
+    const orgKey = orgInfo?.instance || 'default';
+    orgConfigs[orgKey] = { ...githubConfig };
+    await chrome.storage.local.set({ githubOrgConfigs: orgConfigs });
+
+    updateGitHubSyncDisplay();
+
+    showSuccess(`Successfully pushed ${files.length} file(s) to GitHub!`);
+    console.log('[GitHub] Commit successful:', commitResult.htmlUrl);
+
+    await exportHistory.logExport({
+      exportType: 'github',
+      instanceUrl: `${githubConfig.owner}/${githubConfig.repo} (${githubConfig.branch})`,
+      typeCount: selectedMetadataTypes.size,
+      memberCount: files.length,
+      destructiveCount: selectedDestructiveMembers.size
+    });
+
+  } catch (err) {
+    exportInProgress = false;
+    updateExportButtonState();
+    hideExportProgress();
+    showError('GitHub push failed: ' + err.message);
+  } finally {
+    isGitHubPushInProgress = false;
+    if (elements.pushGithubBtn) {
+      elements.pushGithubBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><use href="assets/icons.svg#icon-github"></use></svg><span>Push to GitHub</span>';
+    }
+  }
 }
 
 /**
@@ -2985,6 +3436,38 @@ function attachEventListeners() {
   }
   if (elements.switchOrgBtn) {
     elements.switchOrgBtn.addEventListener('click', switchOrg);
+  }
+
+  // GitHub buttons and modal
+  if (elements.githubBtn) {
+    elements.githubBtn.addEventListener('click', openGitHubModal);
+  }
+  if (elements.githubLoginBtn) {
+    elements.githubLoginBtn.addEventListener('click', handleGitHubDeviceLogin);
+  }
+  if (elements.githubModalClose) {
+    elements.githubModalClose.addEventListener('click', closeGitHubModal);
+  }
+  if (elements.githubModalOverlay) {
+    elements.githubModalOverlay.addEventListener('click', closeGitHubModal);
+  }
+  if (elements.githubVerifyTokenBtn) {
+    elements.githubVerifyTokenBtn.addEventListener('click', verifyAndLoadGitHubDetails);
+  }
+  if (elements.githubRepoSelect) {
+    elements.githubRepoSelect.addEventListener('change', handleRepoSelectChange);
+  }
+  if (elements.githubBranchSelect) {
+    elements.githubBranchSelect.addEventListener('change', handleBranchSelectChange);
+  }
+  if (elements.githubCreateBranchBtn) {
+    elements.githubCreateBranchBtn.addEventListener('click', handleCreateNewBranch);
+  }
+  if (elements.githubSaveSettingsBtn) {
+    elements.githubSaveSettingsBtn.addEventListener('click', saveGitHubSettings);
+  }
+  if (elements.pushGithubBtn) {
+    elements.pushGithubBtn.addEventListener('click', handlePushToGitHub);
   }
   
   // Profile button and modal
@@ -3232,18 +3715,19 @@ function handleBackgroundMessage(message) {
       break;
     
     case 'EXPORT_PROGRESS':
-      // Map progress values to checklist status
       let checklistStatus = 'Pending';
       if (message.progress <= 10) {
         checklistStatus = 'Preparing';
       } else if (message.progress <= 30) {
         checklistStatus = 'Initiating';
       }
-      showExportProgress(getChecklistMessage(checklistStatus, 0), message.progress);
+      showExportProgress(message.status || getChecklistMessage(checklistStatus, 0), message.progress, isGitHubPushInProgress);
       break;
     
     case 'EXPORT_COMPLETE':
-      showExportProgress('Export complete! Download started.', 100);
+      if (!isGitHubPushInProgress) {
+        showExportProgress('Export complete! Download started.', 100, false);
+      }
       break;
     
     case 'EXPORT_ERROR':
