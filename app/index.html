@@ -482,12 +482,54 @@
         </div>
     </div>
 
+    <!-- GitHub Commit Message Prompt Modal -->
+    <div id="github-commit-prompt-modal" class="modal hidden">
+        <div id="github-commit-prompt-overlay" class="modal-overlay"></div>
+        <div class="modal-content" style="max-width: 480px; padding: 20px;">
+            <div class="modal-header" style="margin-bottom: 14px;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><use href="assets/icons.svg#icon-github"></use></svg>
+                    <span>Confirm GitHub Commit Message</span>
+                </h3>
+                <button class="modal-close" id="github-commit-prompt-close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <use href="assets/icons.svg#icon-x"></use>
+                    </svg>
+                </button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <p style="font-size: var(--font-xs); color: var(--text-muted); margin: 0;">
+                    Review or customize your commit message before pushing metadata to GitHub.
+                </p>
+                <div class="settings-container" style="padding: 10px 12px; background: var(--bg-hover); border-radius: 6px;">
+                    <span style="font-size: 0.8125rem; color: var(--text-muted);">Destination:</span>
+                    <strong id="github-commit-dest-text" style="font-size: 0.8125rem; word-break: break-all; display: block; margin-top: 2px;">owner/repo:branch</strong>
+                </div>
+                <div>
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.875rem;">Commit Message</label>
+                    <input id="github-commit-prompt-input" type="text" class="settings-input" style="width: 100%;" />
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                    <button id="github-commit-prompt-cancel" class="modal-cancel-btn">Cancel</button>
+                    <button id="github-commit-prompt-confirm" class="primary-btn" style="width: auto; padding: 8px 20px;">Confirm & Push</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
     <script src="../utils/toast.js"></script>
     <script src="../lib/package-xml-parser.js"></script>
+    <script src="ui/dom-elements.js"></script>
+    <script src="ui/toast.js"></script>
+    <script src="ui/org-header.js"></script>
+    <script src="ui/categories-ui.js"></script>
+    <script src="ui/presets-ui.js"></script>
+    <script src="ui/history-ui.js"></script>
+    <script src="ui/github-ui.js"></script>
     <script type="module" src="index.js"></script>
 </body>
 

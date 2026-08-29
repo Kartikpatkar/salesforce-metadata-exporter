@@ -583,18 +583,19 @@ async function handleGetExportStatus(sendResponse) {
     const state = await getExportState();
     
     if (!state) {
-      sendResponse({ success: true, status: 'NotStarted', progress: 0, message: 'No export in progress' });
+      sendResponse({ success: true, status: 'Succeeded', progress: 100, message: 'Export complete!', done: true });
       return;
     }
     
-    // If already downloaded, don't check again
-    if (state.downloaded) {
+    // If already downloaded or completed, return cached result without re-querying API
+    if (state.downloaded || state.done || state.status === 'Succeeded') {
       sendResponse({ 
         success: true, 
         status: 'Succeeded',
         progress: 100,
-        message: '✅ Export complete!',
-        done: true
+        message: 'Export complete!',
+        done: true,
+        zipFile: state.zipFile || null
       });
       return;
     }
