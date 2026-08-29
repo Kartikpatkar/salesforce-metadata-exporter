@@ -74,7 +74,6 @@ const elements = {
   pastePackageBtn: document.getElementById('paste-package-btn'),
   
   // Package preview
-  togglePreview: document.getElementById('toggle-preview'),
   packagePreview: document.getElementById('package-preview'),
   tabPackage: document.getElementById('tab-package'),
   tabDestructive: document.getElementById('tab-destructive'),
@@ -2254,18 +2253,61 @@ function switchPreviewTab(tab) {
 }
 
 /**
+ * Simple, fast XML syntax highlighter
+ * @param {string} xml - Raw XML string
+ * @returns {string} HTML string with syntax highlighting classes
+ */
+function highlightXml(xml) {
+  if (!xml) return '';
+  let escaped = xml
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  // Highlight comments
+  escaped = escaped.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="xml-comment">$1</span>');
+
+  // Highlight XML tags & attributes
+  escaped = escaped.replace(/(&lt;\/?)([\w:-]+)([\s\S]*?)(\/?&gt;)/g, (match, open, tagName, attrs, close) => {
+    const formattedAttrs = attrs.replace(/([\w:-]+)=(&quot;.*?&quot;)/g, '<span class="xml-attr-name">$1</span>=<span class="xml-attr-value">$2</span>');
+    return `<span class="xml-tag">${open}<span class="xml-tag-name">${tagName}</span>${formattedAttrs}${close}</span>`;
+  });
+
+  return escaped;
+}
+
+/**
+ * Update preview tab count badges
+ */
+function updatePreviewTabBadges() {
+  const packageTypesCount = selectedMetadataTypes.size;
+  let destructiveCount = 0;
+  selectedDestructiveMembers.forEach(set => {
+    if (set instanceof Set) destructiveCount += set.size;
+  });
+
+  if (elements.tabPackage) {
+    elements.tabPackage.innerHTML = `📄 package.xml <span class="tab-count-badge">${packageTypesCount}</span>`;
+  }
+  if (elements.tabDestructive) {
+    elements.tabDestructive.innerHTML = `🗑️ destructiveChanges.xml <span class="tab-count-badge">${destructiveCount}</span>`;
+  }
+}
+
+/**
  * Update package.xml / destructiveChanges.xml preview based on the active tab and selections
  */
 function updatePackagePreview() {
   console.log('[App] Updating package preview. Tab:', activePreviewTab, 'Selected types:', selectedMetadataTypes.size);
   
+  updatePreviewTabBadges();
   const previewCode = elements.packagePreview.querySelector('code');
   
   if (activePreviewTab === 'destructive') {
     // --- Destructive changes tab ---
     if (selectedDestructiveMembers.size === 0 || !orgInfo) {
-      previewCode.textContent = '<!-- No members marked for deletion -->';
-      // Clear stored destructive xml when nothing is selected
+      previewCode.innerHTML = highlightXml('<!-- No members marked for deletion -->');
       chrome.storage.local.remove('destructiveChangesXmlContent');
       return;
     }
@@ -2284,27 +2326,27 @@ function updatePackagePreview() {
       });
       
       if (destructiveTypes.length === 0) {
-        previewCode.textContent = '<!-- No members marked for deletion -->';
+        previewCode.innerHTML = highlightXml('<!-- No members marked for deletion -->');
         chrome.storage.local.remove('destructiveChangesXmlContent');
         return;
       }
       
       const destructiveXML = generator.generateWithMembers(destructiveTypes);
-      previewCode.textContent = destructiveXML;
+      previewCode.innerHTML = highlightXml(destructiveXML);
       
       // Persist for ZIP injection by the service worker
       chrome.storage.local.set({ destructiveChangesXmlContent: destructiveXML });
       console.log('[App] destructiveChanges.xml generated and saved to storage.');
     } catch (error) {
       console.error('[App] Failed to generate destructiveChanges.xml:', error);
-      previewCode.textContent = `<!-- Error generating destructiveChanges.xml: ${error.message} -->`;
+      previewCode.innerHTML = highlightXml(`<!-- Error generating destructiveChanges.xml: ${error.message} -->`);
     }
     return;
   }
   
   // --- Package.xml tab (default) ---
   if (selectedMetadataTypes.size === 0 || !orgInfo) {
-    previewCode.textContent = '<!-- Select metadata types to preview package.xml -->';
+    previewCode.innerHTML = highlightXml('<!-- Select metadata types to preview package.xml -->');
     return;
   }
   
@@ -2317,7 +2359,7 @@ function updatePackagePreview() {
   });
   
   if (retrieveTypes.length === 0) {
-    previewCode.textContent = '<!-- No members selected for retrieval. Use the destructiveChanges.xml tab to see deletion manifest. -->';
+    previewCode.innerHTML = highlightXml('<!-- No members selected for retrieval. Use the destructiveChanges.xml tab to see deletion manifest. -->');
     return;
   }
   
@@ -2340,8 +2382,6 @@ function updatePackagePreview() {
         memberArray = ['*']; // Default fallback
       }
       
-      console.log(`[App] Type: ${type}, Members:`, memberArray);
-      
       return {
         name: type,
         members: memberArray
@@ -2351,8 +2391,7 @@ function updatePackagePreview() {
     console.log('[App] Generating package.xml for types:', typesWithMembers.length);
     
     const packageXML = generator.generateWithMembers(typesWithMembers);
-    
-    previewCode.textContent = packageXML;
+    previewCode.innerHTML = highlightXml(packageXML);
     console.log('[App] Package.xml generated successfully. Length:', packageXML.length);
     
     // Persist destructive xml whenever preview updates (in case tab not visited)
@@ -2379,23 +2418,7 @@ function updatePackagePreview() {
     }
   } catch (error) {
     console.error('[App] Failed to generate package.xml:', error);
-    previewCode.textContent = `<!-- Error generating package.xml: ${error.message} -->`;
-  }
-}
-
-/**
- * Toggle package.xml preview visibility
- */
-function togglePreview() {
-  const isHidden = elements.packagePreview.classList.contains('hidden');
-  
-  if (isHidden) {
-    elements.packagePreview.classList.remove('hidden');
-    elements.togglePreview.textContent = 'Hide Preview';
-    updatePackagePreview();
-  } else {
-    elements.packagePreview.classList.add('hidden');
-    elements.togglePreview.textContent = 'Show Preview';
+    previewCode.innerHTML = highlightXml(`<!-- Error generating package.xml: ${error.message} -->`);
   }
 }
 
@@ -2700,21 +2723,20 @@ let progressToast = null;
  * @param {number} progress - Progress value (0-100)
  */
 function showExportProgress(message, progress = 0) {
-  if (progress === 0) {
-    // Create persistent toast at start
-    progressToast = showToast('Export Progress', message, 'info', true);
-  } else if (progress === 100) {
-    // Update to success and dismiss after delay
+  if (progress === 100) {
     if (progressToast) {
       updateToast(progressToast, 'Export Complete', message, 'success');
-      dismissToast(progressToast, 2000);
+      dismissToast(progressToast, 2500);
       progressToast = null;
     } else {
       showSuccess(message);
     }
-  } else if (progressToast) {
-    // Update the persistent toast with new message
-    updateToast(progressToast, 'Export Progress', message);
+  } else {
+    if (!progressToast) {
+      progressToast = showToast('Export Progress', message, 'info', true);
+    } else {
+      updateToast(progressToast, 'Export Progress', message);
+    }
   }
   
   if (progress === 100) {
@@ -2950,11 +2972,6 @@ function attachEventListeners() {
   // Paste package.xml from clipboard button
   if (elements.pastePackageBtn) {
     elements.pastePackageBtn.addEventListener('click', handlePastePackage);
-  }
-  
-  // Package preview toggle
-  if (elements.togglePreview) {
-    elements.togglePreview.addEventListener('click', togglePreview);
   }
   
   // Preview tab switchers

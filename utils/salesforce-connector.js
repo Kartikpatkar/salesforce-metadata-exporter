@@ -347,13 +347,15 @@ class SalesforceConnector {
                 return { isAuthenticated: false };
             }
 
-            const url = new URL(tab.url);
-            const hostname = url.hostname;
+            const apiBase = this._getApiBaseFromHostname(hostname, url.protocol);
+            const apiHostname = apiBase ? new URL(apiBase).hostname : hostname;
 
             // Get all cookies for potential Salesforce domains
             const cookieDomains = [
                 hostname,
                 `.${hostname}`,
+                apiHostname,
+                `.${apiHostname}`,
                 '.salesforce.com',
                 '.my.salesforce.com',
                 '.force.com'
@@ -363,7 +365,6 @@ class SalesforceConnector {
             for (const domain of cookieDomains) {
                 try {
                     const cookies = await chrome.cookies.getAll({ domain });
-                    console.log(`[SalesforceConnector] Cookies for ${domain}:`, cookies.length);
                     allCookies.push(...cookies);
                 } catch (e) {
                     // Ignore cookie fetch errors
@@ -374,15 +375,34 @@ class SalesforceConnector {
                 return { isAuthenticated: false };
             }
 
-            // Find session cookies (prioritize 'sid')
+            // Score cookies: prioritize exact hostname / my-domain match
+            const scoreCookie = (cookie) => {
+                let score = this._scoreSessionCookie(cookie.name);
+                const cDomain = (cookie.domain || '').replace(/^\./, '');
+                if (cDomain === hostname || cDomain === apiHostname) {
+                    score += 100;
+                } else if (hostname.endsWith(cDomain) || apiHostname.endsWith(cDomain)) {
+                    score += 10;
+                }
+                return score;
+            };
+
+            // Deduplicate by cookie value and sort by relevance
+            const seenValues = new Set();
             const sessionCookies = allCookies
-                .filter(c => c.name && (
-                    c.name === 'sid' ||
-                    c.name.startsWith('sid_') ||
-                    c.name.includes('sid') ||
-                    c.name.endsWith('_sid')
-                ))
-                .sort((a, b) => this._scoreSessionCookie(b.name) - this._scoreSessionCookie(a.name));
+                .filter(c => {
+                    if (!c.name || !c.value || seenValues.has(c.value)) return false;
+                    const isSid = c.name === 'sid' ||
+                                  c.name.startsWith('sid_') ||
+                                  c.name.includes('sid') ||
+                                  c.name.endsWith('_sid');
+                    if (isSid) {
+                        seenValues.add(c.value);
+                        return true;
+                    }
+                    return false;
+                })
+                .sort((a, b) => scoreCookie(b) - scoreCookie(a));
 
             const validationFailures = [];
 

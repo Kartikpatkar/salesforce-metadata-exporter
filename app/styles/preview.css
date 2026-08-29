@@ -223,3 +223,41 @@
 .destructive-confirm-proceed-btn {
   min-width: 150px;
 }
+
+/* XML Syntax Highlighting */
+.xml-tag { color: #f6ad55; }
+.xml-tag-name { color: #f6ad55; font-weight: 600; }
+.xml-attr-name { color: #63b3ed; }
+.xml-attr-value { color: #68d391; }
+.xml-content { color: #e2e8f0; }
+.xml-comment { color: #718096; font-style: italic; }
+.xml-version { color: #4fd1c5; }
+
+/* Tab Counter Badges */
+.tab-count-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 1px 7px;
+  border-radius: 12px;
+  background: #edf2f7;
+  color: #4a5568;
+  margin-left: 6px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.preview-tab.active .tab-count-badge {
+  background: #ebf4ff;
+  color: #4c51bf;
+}
+
+body.dark-theme .tab-count-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e0;
+}
+
+body.dark-theme .preview-tab.active .tab-count-badge {
+  background: rgba(102, 126, 234, 0.25);
+  color: #a3bffa;
+}
+

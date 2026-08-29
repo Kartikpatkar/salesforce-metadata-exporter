@@ -359,14 +359,18 @@ async function handleStartExport(payload, sendResponse) {
     const retrieveId = await initiateMetadataRetrieve(orgInfo, packageXML);
     
     // Step 3 - Store retrieve ID and start polling
-    await storeExportState({
+    const exportStateObj = {
       retrieveId,
       orgInfo,
       status: 'InProgress',
       startTime: Date.now(),
       downloaded: false,  // Track if already downloaded
       selectedTypes: typesWithMembers.map(t => t.name)
-    });
+    };
+    await storeExportState(exportStateObj);
+    
+    // Start autonomous background polling
+    startBackgroundExportPolling(retrieveId, orgInfo);
     
     sendResponse({ success: true, retrieveId });
     
@@ -381,6 +385,71 @@ async function handleStartExport(payload, sendResponse) {
     sendResponse({ success: false, error: error.message });
     notifyPopup('EXPORT_ERROR', { error: error.message });
   }
+}
+
+let activePollingTask = null;
+
+/**
+ * Autonomous background polling in Service Worker
+ */
+function startBackgroundExportPolling(retrieveId, orgInfo) {
+  if (activePollingTask) {
+    clearInterval(activePollingTask);
+    activePollingTask = null;
+  }
+  
+  const pollIntervalMs = 4000;
+  const maxAttempts = 360; // 24 minutes
+  let attempts = 0;
+
+  activePollingTask = setInterval(async () => {
+    try {
+      const state = await getExportState();
+      if (!state || state.retrieveId !== retrieveId || state.downloaded) {
+        clearInterval(activePollingTask);
+        activePollingTask = null;
+        return;
+      }
+
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(activePollingTask);
+        activePollingTask = null;
+        await clearExportState();
+        notifyPopup('EXPORT_ERROR', { error: 'Export timed out on server' });
+        return;
+      }
+
+      const api = new SalesforceMetadataAPI(state.orgInfo || orgInfo);
+      const retrieveStatus = await api.checkRetrieveStatus(state.retrieveId);
+
+      state.status = retrieveStatus.state;
+      state.done = retrieveStatus.done;
+
+      if (retrieveStatus.done) {
+        clearInterval(activePollingTask);
+        activePollingTask = null;
+
+        if (retrieveStatus.success && retrieveStatus.zipFile) {
+          if (!state.downloaded) {
+            state.downloaded = true;
+            await storeExportState(state);
+            console.log('[Service Worker] Triggering background ZIP download');
+            await downloadZipFile(retrieveStatus.zipFile, state);
+            await clearExportState();
+            notifyPopup('EXPORT_COMPLETE', { success: true });
+          }
+        } else {
+          await clearExportState();
+          notifyPopup('EXPORT_ERROR', { error: retrieveStatus.errorMessage || 'Export failed on Salesforce' });
+        }
+      } else {
+        await storeExportState(state);
+      }
+    } catch (err) {
+      console.warn('[Service Worker] Background poll tick error:', err.message);
+    }
+  }, pollIntervalMs);
 }
 
 /**
@@ -572,6 +641,10 @@ async function handleGetExportStatus(sendResponse) {
  */
 async function handleCancelExport(sendResponse) {
   try {
+    if (activePollingTask) {
+      clearInterval(activePollingTask);
+      activePollingTask = null;
+    }
     await clearExportState();
     
     console.log('[Service Worker] Export cancelled');
