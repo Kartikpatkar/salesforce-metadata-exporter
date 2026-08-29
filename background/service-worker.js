@@ -490,7 +490,6 @@ function generatePackageXML(typesWithMembers, apiVersion) {
  * @returns {Promise<string>} Retrieve request ID
  */
 async function initiateMetadataRetrieve(orgInfo, packageXML) {
-  // TODO: Use SalesforceMetadataAPI module
   console.log('[Service Worker] Calling Metadata API retrieve()...');
   
   const api = new SalesforceMetadataAPI(orgInfo);

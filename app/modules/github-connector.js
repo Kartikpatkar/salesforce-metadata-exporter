@@ -171,7 +171,7 @@ export class GitHubConnector {
    * @param {string} owner - Repository owner
    * @param {string} repo - Repository name
    * @param {string} branch - Target branch
-   * @param {string} targetFolder - Root prefix (e.g. 'force-app/main/default' or '')
+   * @param {string} targetFolder - Root prefix (e.g. 'src' or '')
    * @param {Array<{path: string, content: string, isBinary?: boolean, delete?: boolean}>} files
    * @param {string} commitMessage
    * @returns {Promise<Object>} Commit result ({ commitSha, htmlUrl })
@@ -219,7 +219,7 @@ export class GitHubConnector {
     const treeItems = [];
     const effectiveFolder = (targetFolder && targetFolder.trim() && targetFolder.trim() !== '.' && targetFolder.trim() !== '/') 
       ? targetFolder.trim() 
-      : 'force-app/main/default';
+      : 'src';
     const prefix = `${effectiveFolder.replace(/\/+$/, '')}/`;
 
     for (const f of files) {

@@ -434,6 +434,9 @@
                         <button id="github-verify-token-btn" class="preset-btn refresh" style="padding: 6px 12px;">Verify</button>
                     </div>
                     <span id="github-token-status" class="settings-hint" style="margin-top: 4px; display: block;">Requires <code>repo</code> scope</span>
+                    <p style="margin: 8px 0 0 0; font-size: 0.75rem; color: var(--text-muted);">
+                        Token is stored locally in your browser. Use granular scopes.
+                    </p>
                 </div>
 
                 <!-- Repo Selector -->
@@ -465,8 +468,10 @@
                 <!-- Target Folder Path -->
                 <div class="settings-container" style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
                     <label style="font-weight: 600; display: block; margin-bottom: 6px;">Subfolder Path</label>
-                    <input id="github-target-folder" type="text" value="force-app/main/default" placeholder="force-app/main/default" class="settings-input" style="width: 100%;" />
-                    <span class="settings-hint">Standard Salesforce DX directory structure</span>
+                    <input id="github-target-folder" type="text" value="src" placeholder="src" class="settings-input" style="width: 100%;" />
+                    <div style="margin-top: 8px; padding: 8px; background: rgba(229, 62, 62, 0.1); border-left: 3px solid #e53e3e; border-radius: 4px;">
+                        <span class="settings-hint" style="color: var(--text-primary); font-weight: 500; font-size: 0.75rem;">Warning: Exports use raw Metadata API (mdapi) format. Pushing to a SFDX `force-app` directory may break source tracking.</span>
+                    </div>
                 </div>
 
                 <!-- Last Synced Info -->

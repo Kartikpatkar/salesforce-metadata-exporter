@@ -71,15 +71,16 @@ async function displayOrgInfo(org) {
     return;
   }
   
+  const extractedOrgId = org.sessionId ? org.sessionId.split('!')[0] : 'Connected';
   orgInfo = {
     url: org.instanceUrl, instanceUrl: org.instanceUrl, instance: extractInstanceFromUrl(org.instanceUrl),
-    orgId: 'Connected', apiVersion: '59.0', sessionId: org.sessionId, isSandbox: org.isSandbox
+    orgId: extractedOrgId, apiVersion: '59.0', sessionId: org.sessionId, isSandbox: org.isSandbox
   };
   
   if (elements.orgStatus) elements.orgStatus.textContent = `✅ Connected to Salesforce ${org.isSandbox ? '(Sandbox)' : '(Production)'}`;
   if (elements.orgUrl) elements.orgUrl.textContent = org.instanceUrl;
   if (elements.orgInstance) elements.orgInstance.textContent = orgInfo.instance;
-  if (elements.orgId) elements.orgId.textContent = org.isSandbox ? 'Sandbox Org' : 'Production Org';
+  if (elements.orgId) elements.orgId.textContent = `${orgInfo.orgId} (${org.isSandbox ? 'Sandbox' : 'Production'})`;
   if (elements.apiVersion) elements.apiVersion.textContent = orgInfo.apiVersion;
   if (elements.orgDetails) elements.orgDetails.classList.remove('hidden');
   if (elements.loginBtn) elements.loginBtn.style.display = 'none';

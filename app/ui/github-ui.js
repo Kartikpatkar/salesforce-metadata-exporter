@@ -2,7 +2,7 @@
  * GitHub Integration & Direct Push UI Module
  */
 
-let githubConfig = { token: '', owner: '', repo: '', branch: '', targetFolder: 'force-app/main/default', commitNote: '' };
+let githubConfig = { token: '', owner: '', repo: '', branch: '', targetFolder: 'src', commitNote: '' };
 
 function updateGitHubSyncDisplay() {
   const el = document.getElementById('github-last-synced-val');
@@ -13,17 +13,20 @@ async function loadGitHubSettings() {
   const result = await chrome.storage.local.get(['githubConfig', 'githubOrgConfigs']);
   const globalConfig = result.githubConfig || {}, orgConfigs = result.githubOrgConfigs || {}, orgKey = orgInfo?.instance || 'default', orgSpecific = orgConfigs[orgKey] || {};
 
+  let tFolder = orgSpecific.targetFolder || globalConfig.targetFolder || 'src';
+  if (tFolder === 'force-app/main/default') tFolder = 'src'; // Migrate old default
+  
   githubConfig = {
     token: orgSpecific.token || globalConfig.token || '', owner: orgSpecific.owner || globalConfig.owner || '',
     repo: orgSpecific.repo || globalConfig.repo || '', branch: orgSpecific.branch || globalConfig.branch || '',
-    targetFolder: orgSpecific.targetFolder || globalConfig.targetFolder || 'force-app/main/default',
+    targetFolder: tFolder,
     commitNote: orgSpecific.commitNote || '', lastSynced: orgSpecific.lastSynced || null
   };
 
   if (githubConfig.token) {
     githubConnector.setToken(githubConfig.token);
     if (elements.githubPatInput) elements.githubPatInput.value = githubConfig.token;
-    if (elements.githubTargetFolder) elements.githubTargetFolder.value = githubConfig.targetFolder || 'force-app/main/default';
+    if (elements.githubTargetFolder) elements.githubTargetFolder.value = githubConfig.targetFolder || 'src';
   }
   updateGitHubSyncDisplay();
 }
