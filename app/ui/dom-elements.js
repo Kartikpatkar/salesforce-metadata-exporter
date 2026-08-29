@@ -113,6 +113,8 @@ const elements = {
   get githubCommitPromptOverlay() { return document.getElementById('github-commit-prompt-overlay'); },
   get githubCommitPromptClose() { return document.getElementById('github-commit-prompt-close'); },
   get githubCommitPromptDestText() { return document.getElementById('github-commit-dest-text'); },
+  get githubCommitRepoSelect() { return document.getElementById('github-commit-repo-select'); },
+  get githubCommitBranchSelect() { return document.getElementById('github-commit-branch-select'); },
   get githubCommitPromptInput() { return document.getElementById('github-commit-prompt-input'); },
   get githubCommitPromptCancel() { return document.getElementById('github-commit-prompt-cancel'); },
   get githubCommitPromptConfirm() { return document.getElementById('github-commit-prompt-confirm'); }

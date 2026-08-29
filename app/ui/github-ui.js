@@ -167,13 +167,63 @@ async function saveGitHubSettings() {
   showSuccess(`Saved GitHub settings for ${orgKey}! (${owner}/${repo}:${branchVal})`);
 }
 
-function promptCommitMessage(defaultMsg, destText) {
-  return new Promise((resolve, reject) => {
-    if (!elements.githubCommitPromptModal) return resolve(defaultMsg);
+function promptCommitMessage(defaultMsg, currentConfig) {
+  return new Promise(async (resolve, reject) => {
+    if (!elements.githubCommitPromptModal) return resolve({ msg: defaultMsg, owner: currentConfig.owner, repo: currentConfig.repo, branch: currentConfig.branch });
 
-    if (elements.githubCommitPromptDestText) elements.githubCommitPromptDestText.textContent = destText;
     if (elements.githubCommitPromptInput) elements.githubCommitPromptInput.value = defaultMsg;
+    
+    if (elements.githubCommitRepoSelect) {
+      elements.githubCommitRepoSelect.innerHTML = '<option value="">-- Loading Repos --</option>';
+      elements.githubCommitRepoSelect.disabled = true;
+    }
+    if (elements.githubCommitBranchSelect) {
+       elements.githubCommitBranchSelect.innerHTML = '<option value="">-- Select Repo First --</option>';
+       elements.githubCommitBranchSelect.disabled = true;
+    }
+
     elements.githubCommitPromptModal.classList.remove('hidden');
+
+    try {
+      const repos = await githubConnector.fetchUserRepos();
+      if (elements.githubCommitRepoSelect) {
+        elements.githubCommitRepoSelect.innerHTML = '';
+        repos.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = `${r.owner}/${r.name}`;
+          opt.textContent = `${r.owner}/${r.name}`;
+          if (r.owner === currentConfig.owner && r.name === currentConfig.repo) opt.selected = true;
+          elements.githubCommitRepoSelect.appendChild(opt);
+        });
+        elements.githubCommitRepoSelect.disabled = false;
+        
+        const loadBranches = async () => {
+          if (!elements.githubCommitRepoSelect.value) return;
+          const [owner, repo] = elements.githubCommitRepoSelect.value.split('/');
+          elements.githubCommitBranchSelect.innerHTML = '<option value="">-- Loading Branches --</option>';
+          elements.githubCommitBranchSelect.disabled = true;
+          try {
+             const branches = await githubConnector.fetchBranches(owner, repo);
+             elements.githubCommitBranchSelect.innerHTML = '';
+             branches.forEach(b => {
+               const opt = document.createElement('option');
+               opt.value = b.name;
+               opt.textContent = b.name;
+               if (b.name === currentConfig.branch && owner === currentConfig.owner && repo === currentConfig.repo) opt.selected = true;
+               elements.githubCommitBranchSelect.appendChild(opt);
+             });
+             elements.githubCommitBranchSelect.disabled = false;
+          } catch (e) {
+             elements.githubCommitBranchSelect.innerHTML = `<option value="">Error loading branches</option>`;
+          }
+        };
+        
+        elements.githubCommitRepoSelect.onchange = loadBranches;
+        await loadBranches();
+      }
+    } catch (e) {
+      if (elements.githubCommitRepoSelect) elements.githubCommitRepoSelect.innerHTML = '<option value="">Error loading repos</option>';
+    }
 
     const cleanup = () => {
       elements.githubCommitPromptModal.classList.add('hidden');
@@ -186,7 +236,15 @@ function promptCommitMessage(defaultMsg, destText) {
     if (elements.githubCommitPromptConfirm) {
       elements.githubCommitPromptConfirm.onclick = () => {
         const msg = (elements.githubCommitPromptInput?.value || '').trim() || defaultMsg;
-        cleanup(); resolve(msg);
+        const selectedRepo = elements.githubCommitRepoSelect?.value;
+        const selectedBranch = elements.githubCommitBranchSelect?.value;
+        if (!selectedRepo || !selectedBranch) {
+           showError('Please select a repository and branch.');
+           return;
+        }
+        const [owner, repo] = selectedRepo.split('/');
+        cleanup(); 
+        resolve({ msg, owner, repo, branch: selectedBranch });
       };
     }
 
@@ -207,10 +265,8 @@ async function handlePushToGitHub() {
   }
 
   const defaultTitle = `Salesforce Metadata Backup (${orgInfo.instance || orgInfo.url}) - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
-  const destText = `${githubConfig.owner}/${githubConfig.repo}:${githubConfig.branch}`;
-  let finalCommitTitle = defaultTitle;
-
-  try { finalCommitTitle = await promptCommitMessage(defaultTitle, destText); }
+  let pushConfig;
+  try { pushConfig = await promptCommitMessage(defaultTitle, githubConfig); }
   catch (cancelErr) { return showInfo('Push to GitHub cancelled.'); }
 
   try {
@@ -247,7 +303,7 @@ async function handlePushToGitHub() {
     const files = await (new ZipHandler()).extractZipFiles(zipBase64);
 
     showExportProgress(getGitHubChecklistMessage('commit', Math.floor((Date.now() - startTime) / 1000), files.length), 85, true);
-    const commitResult = await githubConnector.commitFiles(githubConfig.owner, githubConfig.repo, githubConfig.branch, githubConfig.targetFolder, files, finalCommitTitle);
+    const commitResult = await githubConnector.commitFiles(pushConfig.owner, pushConfig.repo, pushConfig.branch, githubConfig.targetFolder, files, pushConfig.msg);
 
     exportInProgress = false; updateExportButtonState();
     showExportProgress(getGitHubChecklistMessage('done', Math.floor((Date.now() - startTime) / 1000), files.length), 100, true);

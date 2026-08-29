@@ -60,6 +60,9 @@
  * sfConnector.clearCache();
  */
 
+import { CookieManager } from './cookie-manager.js';
+import { AuthManager } from './auth-manager.js';
+
 class SalesforceConnector {
     constructor(options = {}) {
         this.cacheTTL = options.cacheTTL || 60000; // 60 seconds default
@@ -353,59 +356,7 @@ class SalesforceConnector {
             const apiBase = this._getApiBaseFromHostname(hostname, url.protocol);
             const apiHostname = apiBase ? new URL(apiBase).hostname : hostname;
 
-            // Get all cookies for potential Salesforce domains
-            const cookieDomains = [
-                hostname,
-                `.${hostname}`,
-                apiHostname,
-                `.${apiHostname}`,
-                '.salesforce.com',
-                '.my.salesforce.com',
-                '.force.com'
-            ];
-
-            const allCookies = [];
-            for (const domain of cookieDomains) {
-                try {
-                    const cookies = await chrome.cookies.getAll({ domain });
-                    allCookies.push(...cookies);
-                } catch (e) {
-                    // Ignore cookie fetch errors
-                }
-            }
-
-            if (allCookies.length === 0) {
-                return { isAuthenticated: false };
-            }
-
-            // Score cookies: prioritize exact hostname / my-domain match
-            const scoreCookie = (cookie) => {
-                let score = this._scoreSessionCookie(cookie.name);
-                const cDomain = (cookie.domain || '').replace(/^\./, '');
-                if (cDomain === hostname || cDomain === apiHostname) {
-                    score += 100;
-                } else if (hostname.endsWith(cDomain) || apiHostname.endsWith(cDomain)) {
-                    score += 10;
-                }
-                return score;
-            };
-
-            // Deduplicate by cookie value and sort by relevance
-            const seenValues = new Set();
-            const sessionCookies = allCookies
-                .filter(c => {
-                    if (!c.name || !c.value || seenValues.has(c.value)) return false;
-                    const isSid = c.name === 'sid' ||
-                                  c.name.startsWith('sid_') ||
-                                  c.name.includes('sid') ||
-                                  c.name.endsWith('_sid');
-                    if (isSid) {
-                        seenValues.add(c.value);
-                        return true;
-                    }
-                    return false;
-                })
-                .sort((a, b) => scoreCookie(b) - scoreCookie(a));
+            const sessionCookies = await CookieManager.getSalesforceCookies(hostname, apiHostname);
 
             const validationFailures = [];
 
@@ -423,7 +374,7 @@ class SalesforceConnector {
                 const apiBase = this._getApiBaseFromHostname(hostname, url.protocol);
 
                 // Validate session via API
-                const validation = await this._validateSessionViaApi(apiBase, cookie.value, tab.id);
+                const validation = await AuthManager.validateSessionViaApi(apiBase, cookie.value);
                 if (validation?.success) {
                     return {
                         isAuthenticated: true,
@@ -445,17 +396,7 @@ class SalesforceConnector {
         }
     }
 
-    /**
-     * Score session cookie names (higher score = better)
-     * @private
-     */
-    _scoreSessionCookie(name = '') {
-        if (name === 'sid') return 3;
-        if (name.startsWith('sid_')) return 2;
-        if (name.includes('sid')) return 1;
-        if (name.endsWith('_sid')) return 1;
-        return 0;
-    }
+
 
     /**
      * Get API base URL from hostname
@@ -477,41 +418,7 @@ class SalesforceConnector {
         return `${protocol}//${hostname}`;
     }
 
-    /**
-     * Validate session via Salesforce API
-     * @private
-     */
-    async _validateSessionViaApi(apiBase, sessionId, tabId = null) {
-        if (!apiBase || !sessionId) {
-            return { success: false, error: 'Missing apiBase or sessionId' };
-        }
 
-        // Try REST API with Bearer token
-        const url = `${apiBase}/services/data/v59.0/limits`;
-        try {
-            const res = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${sessionId}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (res.ok) {
-                return { success: true, status: res.status };
-            }
-
-            const bodyText = await res.text();
-            return {
-                success: false,
-                status: res.status,
-                statusText: res.statusText,
-                bodyPreview: bodyText.substring(0, 200)
-            };
-        } catch (err) {
-            return { success: false, error: err.message };
-        }
-    }
 
     /**
      * Notify auth change via callback

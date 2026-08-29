@@ -506,9 +506,15 @@
                 <p style="font-size: var(--font-xs); color: var(--text-muted); margin: 0;">
                     Review or customize your commit message before pushing metadata to GitHub.
                 </p>
-                <div class="settings-container" style="padding: 10px 12px; background: var(--bg-hover); border-radius: 6px;">
-                    <span style="font-size: 0.8125rem; color: var(--text-muted);">Destination:</span>
-                    <strong id="github-commit-dest-text" style="font-size: 0.8125rem; word-break: break-all; display: block; margin-top: 2px;">owner/repo:branch</strong>
+                <div style="display: flex; gap: 10px; margin-bottom: 4px;">
+                    <div style="flex: 1;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8125rem;">Repository</label>
+                        <select id="github-commit-repo-select" class="settings-input" style="width: 100%;"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8125rem;">Branch</label>
+                        <select id="github-commit-branch-select" class="settings-input" style="width: 100%;"></select>
+                    </div>
                 </div>
                 <div>
                     <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.875rem;">Commit Message</label>
