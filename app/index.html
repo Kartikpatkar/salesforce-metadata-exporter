@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salesforce Metadata Exporter</title>
-    
+
     <!-- Main CSS with modular imports -->
     <link rel="stylesheet" href="index.css">
 </head>
@@ -24,12 +24,14 @@
                     <button id="login-sandbox-btn" class="auth-btn secondary">Login to Sandbox</button>
                     <button id="switch-org-btn" class="auth-btn secondary" style="display: none;">Switch Org</button>
                     <button id="profile-btn" class="profile-btn" title="View Org Details">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <use href="assets/icons.svg#icon-user"></use>
                         </svg>
                     </button>
                     <button id="history-btn" class="profile-btn" title="View Export History">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <use href="assets/icons.svg#icon-history"></use>
                         </svg>
                     </button>
@@ -39,10 +41,12 @@
                         </svg>
                     </button>
                     <button id="theme-toggle" class="profile-btn" title="Toggle Dark Mode">
-                        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
                             <use href="assets/icons.svg#icon-sun"></use>
                         </svg>
-                        <svg class="moon-icon hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="moon-icon hidden" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
                             <use href="assets/icons.svg#icon-moon"></use>
                         </svg>
                     </button>
@@ -61,12 +65,15 @@
 
                 <!-- Search Bar -->
                 <div class="search-container">
-                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
                         <use href="assets/icons.svg#icon-search"></use>
                     </svg>
-                    <input type="text" id="metadata-search" class="metadata-search" placeholder="Search metadata types...">
+                    <input type="text" id="metadata-search" class="metadata-search"
+                        placeholder="Search metadata types...">
                     <button class="clear-search-btn hidden" id="clear-metadata-search" title="Clear search">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <use href="assets/icons.svg#icon-x"></use>
                         </svg>
                     </button>
@@ -80,18 +87,23 @@
                     <label class="search-option-label">
                         <input type="radio" name="search-mode" id="search-mode-members" value="members"> Components
                     </label>
-                    <label class="search-option-label" title="Hide metadata types that are not compatible with Salesforce CLI" style="margin-left: 15px;">
+                    <label class="search-option-label"
+                        title="Hide metadata types that are not compatible with Salesforce CLI"
+                        style="margin-left: 15px;">
                         <input type="checkbox" id="cli-compatible-only" checked> CLI Safe
                     </label>
-                    <button id="preload-members-btn" class="preload-members-btn hidden" title="Load members for global search">Preload All</button>
+                    <button id="preload-members-btn" class="preload-members-btn hidden"
+                        title="Load members for global search">Preload All</button>
                 </div>
 
                 <!-- Quick Actions -->
                 <div id="preset-buttons">
                     <button id="preset-select-all" class="preset-btn">Select All</button>
                     <button id="preset-clear" class="preset-btn secondary">Clear</button>
-                    <button id="preset-refresh" class="preset-btn refresh" title="Refresh metadata types from Salesforce">Refresh</button>
-                    <button id="preset-toggle-manager" class="preset-btn presets" title="Toggle Presets Manager">Presets</button>
+                    <button id="preset-refresh" class="preset-btn refresh"
+                        title="Refresh metadata types from Salesforce">Refresh</button>
+                    <button id="preset-toggle-manager" class="preset-btn presets"
+                        title="Toggle Presets Manager">Presets</button>
                 </div>
 
                 <!-- Presets Manager -->
@@ -100,26 +112,32 @@
                         <select id="preset-dropdown" class="preset-dropdown-select">
                             <option value="">-- Apply Preset --</option>
                         </select>
-                        <button id="delete-preset-btn" class="preset-action-btn delete" title="Delete selected preset" style="display: none;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <button id="delete-preset-btn" class="preset-action-btn delete" title="Delete selected preset"
+                            style="display: none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <use href="assets/icons.svg#icon-x"></use>
                             </svg>
                         </button>
                     </div>
                     <div class="preset-save-row" style="display: flex; gap: 0.5rem;">
-                        <button id="save-preset-btn" class="preset-action-btn save" title="Save current selections as a preset" style="flex: 1;">
+                        <button id="save-preset-btn" class="preset-action-btn save"
+                            title="Save current selections as a preset" style="flex: 1;">
                             💾 Save Selection
                         </button>
-                        <button id="export-presets-btn" class="preset-action-btn secondary" title="Export presets to JSON" style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
+                        <button id="export-presets-btn" class="preset-action-btn secondary"
+                            title="Export presets to JSON" style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
                             📤 Export JSON
                         </button>
-                        <button id="import-presets-btn" class="preset-action-btn secondary" title="Import presets from JSON" style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
+                        <button id="import-presets-btn" class="preset-action-btn secondary"
+                            title="Import presets from JSON" style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
                             📥 Import JSON
                         </button>
                     </div>
                     <input type="file" id="preset-file-input" accept=".json" style="display: none;">
                     <div id="preset-name-input-container" class="preset-name-input-container hidden">
-                        <input type="text" id="preset-name-input" class="preset-name-input" placeholder="Preset name...">
+                        <input type="text" id="preset-name-input" class="preset-name-input"
+                            placeholder="Preset name...">
                         <div class="preset-name-actions">
                             <button id="preset-save-confirm" class="preset-confirm-btn">Save</button>
                             <button id="preset-save-cancel" class="preset-cancel-btn">Cancel</button>
@@ -139,24 +157,29 @@
             <section id="package-preview-section" class="card column-right">
                 <div class="preview-header">
                     <div class="preview-tabs">
-                        <button id="tab-package" class="preview-tab active">📄 package.xml <span class="tab-count-badge">0</span></button>
-                        <button id="tab-destructive" class="preview-tab">🗑️ destructiveChanges.xml <span class="tab-count-badge">0</span></button>
+                        <button id="tab-package" class="preview-tab active">📄 package.xml <span
+                                class="tab-count-badge">0</span></button>
+                        <button id="tab-destructive" class="preview-tab">🗑️ destructiveChanges.xml <span
+                                class="tab-count-badge">0</span></button>
                     </div>
                     <div class="preview-actions">
                         <button id="upload-package-btn" class="action-btn" title="Upload package.xml file">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <use href="assets/icons.svg#icon-upload"></use>
                             </svg>
                             <span>Upload</span>
                         </button>
                         <button id="paste-package-btn" class="action-btn" title="Paste package.xml from clipboard">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <use href="assets/icons.svg#icon-clipboard"></use>
                             </svg>
                             <span>Paste</span>
                         </button>
                         <button id="copy-package-btn" class="action-btn" title="Copy to clipboard">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <use href="assets/icons.svg#icon-copy"></use>
                             </svg>
                             <span class="copy-text">Copy</span>
@@ -165,33 +188,43 @@
                     <input type="file" id="package-file-input" accept=".xml,.txt" style="display: none;">
                 </div>
                 <div id="destructive-info-banner" class="destructive-info-banner hidden">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="12" y1="8" x2="12" y2="12"></line>
                         <line x1="12" y1="16" x2="12.01" y2="16"></line>
                     </svg>
-                    <span><strong>Read-only export.</strong> This manifest does <em>not</em> delete anything automatically. To delete these components, deploy the downloaded ZIP using <strong>Salesforce CLI</strong>, <strong>Ant Migration Tool</strong>, or <strong>Workbench</strong>.</span>
+                    <span><strong>Read-only export.</strong> This manifest does <em>not</em> delete anything
+                        automatically. To delete these components, deploy the downloaded ZIP using <strong>Salesforce
+                            CLI</strong>, <strong>Ant Migration Tool</strong>, or <strong>Workbench</strong>.</span>
                 </div>
                 <pre id="package-preview"><code><!-- Generated package.xml will appear here --></code></pre>
-                
+
                 <!-- Export Controls -->
                 <div id="export-section">
                     <div id="destructive-export-warning" class="destructive-export-warning hidden">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                            </path>
                             <line x1="12" y1="9" x2="12" y2="13"></line>
                             <line x1="12" y1="17" x2="12.01" y2="17"></line>
                         </svg>
-                        <span id="destructive-export-warning-text">Includes <strong>0</strong> member(s) for deletion</span>
+                        <span id="destructive-export-warning-text">Includes <strong>0</strong> member(s) for
+                            deletion</span>
                     </div>
                     <div style="display: flex; gap: 12px; margin-top: 8px;">
-                        <button id="export-btn" class="primary-btn" disabled style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <button id="export-btn" class="primary-btn" disabled
+                            style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <use href="assets/icons.svg#icon-download"></use>
                             </svg>
                             <span>Export Metadata</span>
                         </button>
-                        <button id="push-github-btn" class="primary-btn" disabled style="flex: 1; background: #24292e; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                        <button id="push-github-btn" class="primary-btn" disabled
+                            style="flex: 1; background: #24292e; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                                 <use href="assets/icons.svg#icon-github"></use>
                             </svg>
@@ -212,7 +245,9 @@
 
             <div class="footer-info-row">
                 <div class="footer-author">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 5px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        style="vertical-align: middle; margin-right: 5px;">
                         <use href="assets/icons.svg#icon-code"></use>
                     </svg>
                     Created with ❤️ by <span id="authorDisplay">Kartik Patkar</span>
@@ -221,25 +256,30 @@
 
             <div class="footer-links">
                 <a href="https://github.com/Kartikpatkar" class="footer-link github" target="_blank">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 5px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                        style="vertical-align: middle; margin-right: 5px;">
                         <use href="assets/icons.svg#icon-github"></use>
                     </svg>
                     GitHub
                 </a>
                 <a href="https://www.linkedin.com/in/kartik-patkar" class="footer-link linkedin" target="_blank">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 5px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                        style="vertical-align: middle; margin-right: 5px;">
                         <use href="assets/icons.svg#icon-linkedin"></use>
                     </svg>
                     LinkedIn
                 </a>
                 <a href="https://www.salesforce.com/trailblazer/kpatkar1" class="footer-link trailhead" target="_blank">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 5px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                        style="vertical-align: middle; margin-right: 5px;">
                         <use href="assets/icons.svg#icon-trailhead"></use>
                     </svg>
                     Trailhead
                 </a>
                 <a href="mailto:kartikkp.assets@gmail.com" class="footer-link email">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 5px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        style="vertical-align: middle; margin-right: 5px;">
                         <use href="assets/icons.svg#icon-mail"></use>
                     </svg>
                     Email
@@ -299,7 +339,8 @@
                     <div class="org-detail-item settings-container">
                         <strong>Export Timeout (Minutes)</strong>
                         <div class="settings-row">
-                            <input id="export-timeout-minutes" type="number" min="1" max="240" step="1" class="settings-input" />
+                            <input id="export-timeout-minutes" type="number" min="1" max="240" step="1"
+                                class="settings-input" />
                             <span class="settings-hint">Default: 30</span>
                         </div>
                     </div>
@@ -307,7 +348,8 @@
                     <!-- Profile & Permission Set Downsizing Settings -->
                     <div class="org-detail-item settings-container profile-downsize-container">
                         <strong>Profile & Permission Set Downsizing</strong>
-                        <p class="settings-hint-long">Strip unselected parts of .profile / .permissionset XML files to reduce download sizes and prevent layout conflicts.</p>
+                        <p class="settings-hint-long">Strip unselected parts of .profile / .permissionset XML files to
+                            reduce download sizes and prevent layout conflicts.</p>
                         <div class="settings-row">
                             <label class="toggle-checkbox-label">
                                 <input id="profile-downsize-enable" type="checkbox" />
@@ -315,14 +357,22 @@
                             </label>
                         </div>
                         <div id="profile-downsize-options" class="profile-downsize-options hidden">
-                            <label class="ds-option-label"><input id="ds-classAccesses" type="checkbox" checked /> Keep Apex Classes</label>
-                            <label class="ds-option-label"><input id="ds-fieldPermissions" type="checkbox" checked /> Keep Fields</label>
-                            <label class="ds-option-label"><input id="ds-objectPermissions" type="checkbox" checked /> Keep Objects</label>
-                            <label class="ds-option-label"><input id="ds-pageAccesses" type="checkbox" checked /> Keep Visualforce</label>
-                            <label class="ds-option-label"><input id="ds-layoutAssignments" type="checkbox" checked /> Keep Layouts</label>
-                            <label class="ds-option-label"><input id="ds-recordTypeVisibilities" type="checkbox" checked /> Keep Record Types</label>
-                            <label class="ds-option-label"><input id="ds-tabVisibilities" type="checkbox" checked /> Keep Tabs</label>
-                            <label class="ds-option-label"><input id="ds-userPermissions" type="checkbox" checked /> Keep User Permissions</label>
+                            <label class="ds-option-label"><input id="ds-classAccesses" type="checkbox" checked /> Keep
+                                Apex Classes</label>
+                            <label class="ds-option-label"><input id="ds-fieldPermissions" type="checkbox" checked />
+                                Keep Fields</label>
+                            <label class="ds-option-label"><input id="ds-objectPermissions" type="checkbox" checked />
+                                Keep Objects</label>
+                            <label class="ds-option-label"><input id="ds-pageAccesses" type="checkbox" checked /> Keep
+                                Visualforce</label>
+                            <label class="ds-option-label"><input id="ds-layoutAssignments" type="checkbox" checked />
+                                Keep Layouts</label>
+                            <label class="ds-option-label"><input id="ds-recordTypeVisibilities" type="checkbox"
+                                    checked /> Keep Record Types</label>
+                            <label class="ds-option-label"><input id="ds-tabVisibilities" type="checkbox" checked />
+                                Keep Tabs</label>
+                            <label class="ds-option-label"><input id="ds-userPermissions" type="checkbox" checked />
+                                Keep User Permissions</label>
                         </div>
                     </div>
                 </div>
@@ -340,20 +390,25 @@
             </div>
             <div class="modal-body">
                 <div class="destructive-confirm-info">
-                    <p>Your export package includes <strong id="destructive-confirm-count">0</strong> member(s) marked for deletion:</p>
+                    <p>Your export package includes <strong id="destructive-confirm-count">0</strong> member(s) marked
+                        for deletion:</p>
                     <ul id="destructive-confirm-list" class="destructive-confirm-list"></ul>
                     <div class="destructive-confirm-notice">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
-                        <span>The export itself <strong>does not delete anything</strong>. The downloaded ZIP contains a <code>destructiveChanges.xml</code> manifest. Components are only deleted when you <strong>deploy</strong> that package to a Salesforce org.</span>
+                        <span>The export itself <strong>does not delete anything</strong>. The downloaded ZIP contains a
+                            <code>destructiveChanges.xml</code> manifest. Components are only deleted when you
+                            <strong>deploy</strong> that package to a Salesforce org.</span>
                     </div>
                 </div>
                 <div class="destructive-confirm-actions">
                     <button id="destructive-confirm-cancel" class="modal-cancel-btn">Cancel</button>
-                    <button id="destructive-confirm-proceed" class="primary-btn destructive-confirm-proceed-btn">📦 Continue Export</button>
+                    <button id="destructive-confirm-proceed" class="primary-btn destructive-confirm-proceed-btn">📦
+                        Continue Export</button>
                 </div>
             </div>
         </div>
@@ -377,10 +432,12 @@
                 </button>
             </div>
             <div class="modal-body" style="padding: 16px;">
-                <div style="max-height: 360px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-hover);">
+                <div
+                    style="max-height: 360px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-hover);">
                     <table style="width: 100%; border-collapse: collapse; font-size: var(--font-sm); text-align: left;">
                         <thead style="background: var(--bg-card); position: sticky; top: 0; z-index: 1;">
-                            <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <tr
+                                style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
                                 <th style="padding: 10px 14px;">Date</th>
                                 <th style="padding: 10px 14px;">Target</th>
                                 <th style="padding: 10px 14px;">Destination / Org</th>
@@ -391,7 +448,8 @@
                     </table>
                 </div>
                 <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
-                    <button id="clear-history-btn" class="modal-cancel-btn" style="color: #e53e3e;">Clear History</button>
+                    <button id="clear-history-btn" class="modal-cancel-btn" style="color: #e53e3e;">Clear
+                        History</button>
                 </div>
             </div>
         </div>
@@ -416,9 +474,12 @@
             </div>
             <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
                 <!-- Get Token Helper -->
-                <div class="settings-container" style="padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; background: var(--bg-hover);">
-                    <p style="margin: 0 0 12px 0; font-size: var(--font-sm); color: var(--text-secondary);">Generate your Personal Access Token on GitHub with pre-filled scope.</p>
-                    <button id="github-login-btn" class="primary-btn" style="background: #24292e; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-weight: 600;">
+                <div class="settings-container"
+                    style="padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; background: var(--bg-hover);">
+                    <p style="margin: 0 0 12px 0; font-size: var(--font-sm); color: var(--text-secondary);">Generate
+                        your Personal Access Token on GitHub with pre-filled scope.</p>
+                    <button id="github-login-btn" class="primary-btn"
+                        style="background: #24292e; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-weight: 600;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <use href="assets/icons.svg#icon-github"></use>
                         </svg>
@@ -427,20 +488,26 @@
                 </div>
 
                 <!-- PAT Input -->
-                <div class="settings-container" style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <label style="font-weight: 600; display: block; margin-bottom: 6px;">Personal Access Token (PAT)</label>
+                <div class="settings-container"
+                    style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px;">Personal Access Token
+                        (PAT)</label>
                     <div style="display: flex; gap: 8px;">
-                        <input id="github-pat-input" type="password" placeholder="ghp_xxxxxxxxxxxx" class="settings-input" style="flex: 1;" />
-                        <button id="github-verify-token-btn" class="preset-btn refresh" style="padding: 6px 12px;">Verify</button>
+                        <input id="github-pat-input" type="password" placeholder="ghp_xxxxxxxxxxxx"
+                            class="settings-input" style="flex: 1;" />
+                        <button id="github-verify-token-btn" class="preset-btn refresh"
+                            style="padding: 6px 12px;">Verify</button>
                     </div>
-                    <span id="github-token-status" class="settings-hint" style="margin-top: 4px; display: block;">Requires <code>repo</code> scope</span>
+                    <span id="github-token-status" class="settings-hint"
+                        style="margin-top: 4px; display: block;">Requires <code>repo</code> scope</span>
                     <p style="margin: 8px 0 0 0; font-size: 0.75rem; color: var(--text-muted);">
                         Token is stored locally in your browser. Use granular scopes.
                     </p>
                 </div>
 
                 <!-- Repo Selector -->
-                <div class="settings-container" style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="settings-container"
+                    style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
                     <label style="font-weight: 600; display: block; margin-bottom: 6px;">Target Repository</label>
                     <select id="github-repo-select" class="preset-dropdown-select" disabled>
                         <option value="">-- Connect GitHub Account First --</option>
@@ -448,16 +515,21 @@
                 </div>
 
                 <!-- Branch Selector & Create Branch -->
-                <div class="settings-container" style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="settings-container"
+                    style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
                     <label style="font-weight: 600; display: block; margin-bottom: 6px;">Target Branch</label>
                     <select id="github-branch-select" class="preset-dropdown-select" disabled>
                         <option value="">-- Select Repo First --</option>
                     </select>
 
-                    <div id="github-new-branch-container" class="hidden" style="margin-top: 10px; display: flex; gap: 8px;">
-                        <input id="github-new-branch-input" type="text" placeholder="new-branch-name" class="settings-input" style="flex: 1;" />
-                        <button id="github-create-branch-btn" class="preset-btn" style="padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <div id="github-new-branch-container" class="hidden"
+                        style="margin-top: 10px; display: flex; gap: 8px;">
+                        <input id="github-new-branch-input" type="text" placeholder="new-branch-name"
+                            class="settings-input" style="flex: 1;" />
+                        <button id="github-create-branch-btn" class="preset-btn"
+                            style="padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
                                 <use href="assets/icons.svg#icon-plus"></use>
                             </svg>
                             <span>Create</span>
@@ -466,22 +538,30 @@
                 </div>
 
                 <!-- Target Folder Path -->
-                <div class="settings-container" style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="settings-container"
+                    style="padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
                     <label style="font-weight: 600; display: block; margin-bottom: 6px;">Subfolder Path</label>
-                    <input id="github-target-folder" type="text" value="src" placeholder="src" class="settings-input" style="width: 100%;" />
-                    <div style="margin-top: 8px; padding: 8px; background: rgba(229, 62, 62, 0.1); border-left: 3px solid #e53e3e; border-radius: 4px;">
-                        <span class="settings-hint" style="color: var(--text-primary); font-weight: 500; font-size: 0.75rem;">Warning: Exports use raw Metadata API (mdapi) format. Pushing to a SFDX `force-app` directory may break source tracking.</span>
+                    <input id="github-target-folder" type="text" value="src" placeholder="src" class="settings-input"
+                        style="width: 100%;" />
+                    <div
+                        style="margin-top: 8px; padding: 8px; background: rgba(229, 62, 62, 0.1); border-left: 3px solid #e53e3e; border-radius: 4px;">
+                        <span class="settings-hint"
+                            style="color: var(--text-primary); font-weight: 500; font-size: 0.75rem;">Warning: Exports
+                            use raw Metadata API (mdapi) format. Pushing to a SFDX `force-app` directory may break
+                            source tracking.</span>
                     </div>
                 </div>
 
                 <!-- Last Synced Info -->
-                <div id="github-last-synced-banner" style="font-size: var(--font-xs); color: var(--text-muted); background: var(--bg-hover); padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <div id="github-last-synced-banner"
+                    style="font-size: var(--font-xs); color: var(--text-muted); background: var(--bg-hover); padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                     <span>Last Synced to GitHub:</span>
                     <strong id="github-last-synced-val" style="color: var(--text-primary);">Never</strong>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
-                    <button id="github-save-settings-btn" class="primary-btn" style="padding: 8px 20px;">Save Settings</button>
+                    <button id="github-save-settings-btn" class="primary-btn" style="padding: 8px 20px;">Save
+                        Settings</button>
                 </div>
             </div>
         </div>
@@ -493,7 +573,9 @@
         <div class="modal-content" style="max-width: 480px; padding: 20px;">
             <div class="modal-header" style="margin-bottom: 14px;">
                 <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><use href="assets/icons.svg#icon-github"></use></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <use href="assets/icons.svg#icon-github"></use>
+                    </svg>
                     <span>Confirm GitHub Commit Message</span>
                 </h3>
                 <button class="modal-close" id="github-commit-prompt-close">
@@ -506,23 +588,28 @@
                 <p style="font-size: var(--font-xs); color: var(--text-muted); margin: 0;">
                     Review or customize your commit message before pushing metadata to GitHub.
                 </p>
-                <div style="display: flex; gap: 10px; margin-bottom: 4px;">
-                    <div style="flex: 1;">
-                        <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8125rem;">Repository</label>
+                <div style="display: flex flex-direction: column; gap: 10px; margin-bottom: 4px;">
+                    <div style="flex: 1;margin-bottom: 6px;">
+                        <label
+                            style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8125rem;">Repository</label>
                         <select id="github-commit-repo-select" class="settings-input" style="width: 100%;"></select>
                     </div>
                     <div style="flex: 1;">
-                        <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8125rem;">Branch</label>
+                        <label
+                            style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8125rem;">Branch</label>
                         <select id="github-commit-branch-select" class="settings-input" style="width: 100%;"></select>
                     </div>
                 </div>
                 <div>
-                    <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.875rem;">Commit Message</label>
-                    <input id="github-commit-prompt-input" type="text" class="settings-input" style="width: 100%;" />
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.875rem;">Commit
+                        Message</label>
+                    <textarea id="github-commit-prompt-input" class="settings-input"
+                        style="width: 100%; resize: vertical;" rows="3"></textarea>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
                     <button id="github-commit-prompt-cancel" class="modal-cancel-btn">Cancel</button>
-                    <button id="github-commit-prompt-confirm" class="primary-btn" style="width: auto; padding: 8px 20px;">Confirm & Push</button>
+                    <button id="github-commit-prompt-confirm" class="primary-btn"
+                        style="width: auto; padding: 8px 20px;">Confirm & Push</button>
                 </div>
             </div>
         </div>
