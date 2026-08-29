@@ -28,6 +28,9 @@
                             <use href="assets/icons.svg#icon-user"></use>
                         </svg>
                     </button>
+                    <button id="history-btn" class="profile-btn" title="View Export History">
+                        📜
+                    </button>
                     <button id="theme-toggle" class="profile-btn" title="Toggle Dark Mode">
                         <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <use href="assets/icons.svg#icon-sun"></use>
@@ -96,11 +99,18 @@
                             </svg>
                         </button>
                     </div>
-                    <div class="preset-save-row">
-                        <button id="save-preset-btn" class="preset-action-btn save" title="Save current selections as a preset">
-                            💾 Save Current Selection
+                    <div class="preset-save-row" style="display: flex; gap: 0.5rem;">
+                        <button id="save-preset-btn" class="preset-action-btn save" title="Save current selections as a preset" style="flex: 1;">
+                            💾 Save Selection
+                        </button>
+                        <button id="export-presets-btn" class="preset-action-btn secondary" title="Export presets to JSON" style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
+                            📤 Export JSON
+                        </button>
+                        <button id="import-presets-btn" class="preset-action-btn secondary" title="Import presets from JSON" style="padding: 0.5rem 0.75rem; font-size: 0.8125rem;">
+                            📥 Import JSON
                         </button>
                     </div>
+                    <input type="file" id="preset-file-input" accept=".json" style="display: none;">
                     <div id="preset-name-input-container" class="preset-name-input-container hidden">
                         <input type="text" id="preset-name-input" class="preset-name-input" placeholder="Preset name...">
                         <div class="preset-name-actions">
@@ -321,6 +331,27 @@
                 <div class="destructive-confirm-actions">
                     <button id="destructive-confirm-cancel" class="modal-cancel-btn">Cancel</button>
                     <button id="destructive-confirm-proceed" class="primary-btn destructive-confirm-proceed-btn">📦 Continue Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPORT HISTORY MODAL -->
+    <div id="export-history-modal" class="modal hidden">
+        <div class="modal-overlay" id="export-history-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📜 Export History</h2>
+                <button class="modal-close" id="export-history-close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <use href="assets/icons.svg#icon-x"></use>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <ul id="export-history-list" class="destructive-confirm-list" style="max-height: 300px; overflow-y: auto;"></ul>
+                <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+                    <button id="clear-history-btn" class="modal-cancel-btn" style="color: #e53e3e;">Clear History</button>
                 </div>
             </div>
         </div>

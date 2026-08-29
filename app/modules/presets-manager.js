@@ -80,6 +80,55 @@ export class PresetsManager {
   }
 
   /**
+   * Export all presets to a downloadable JSON file
+   */
+  exportPresetsToJSON() {
+    const jsonStr = JSON.stringify(this.currentPresets, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sf-metadata-presets-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Import presets from a JSON string and save to storage
+   * @param {string} jsonString
+   * @param {string} instanceUrl
+   * @returns {Promise<number>} Count of imported presets
+   */
+  async importPresetsFromJSON(jsonString, instanceUrl) {
+    if (!instanceUrl) throw new Error('No active Salesforce session.');
+    const parsed = JSON.parse(jsonString);
+    if (typeof parsed !== 'object' || parsed === null) {
+      throw new Error('Invalid presets JSON format.');
+    }
+
+    let count = 0;
+    for (const [name, preset] of Object.entries(parsed)) {
+      if (preset && Array.isArray(preset.types)) {
+        this.currentPresets[name] = {
+          types: preset.types,
+          members: preset.members || {},
+          createdAt: preset.createdAt || Date.now()
+        };
+        count++;
+      }
+    }
+
+    if (count > 0) {
+      const key = `metadataPresets_${instanceUrl}`;
+      await chrome.storage.local.set({ [key]: this.currentPresets });
+    }
+
+    return count;
+  }
+
+  /**
    * Populate HTML select element with presets
    * @param {HTMLSelectElement} dropdownEl
    */

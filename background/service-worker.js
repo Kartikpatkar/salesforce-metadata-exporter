@@ -397,6 +397,13 @@ function startBackgroundExportPolling(retrieveId, orgInfo) {
     clearInterval(activePollingTask);
     activePollingTask = null;
   }
+
+  // Create keep-alive alarm to prevent Manifest V3 Service Worker termination
+  try {
+    chrome.alarms.create('exportKeepAlive', { periodInMinutes: 0.25 });
+  } catch (e) {
+    console.warn('[Service Worker] Could not create alarm:', e);
+  }
   
   const pollIntervalMs = 4000;
   const maxAttempts = 360; // 24 minutes
@@ -415,6 +422,7 @@ function startBackgroundExportPolling(retrieveId, orgInfo) {
       if (attempts > maxAttempts) {
         clearInterval(activePollingTask);
         activePollingTask = null;
+        chrome.alarms.clear('exportKeepAlive').catch(() => {});
         await clearExportState();
         notifyPopup('EXPORT_ERROR', { error: 'Export timed out on server' });
         return;
@@ -429,6 +437,7 @@ function startBackgroundExportPolling(retrieveId, orgInfo) {
       if (retrieveStatus.done) {
         clearInterval(activePollingTask);
         activePollingTask = null;
+        chrome.alarms.clear('exportKeepAlive').catch(() => {});
 
         if (retrieveStatus.success && retrieveStatus.zipFile) {
           if (!state.downloaded) {
@@ -693,5 +702,14 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
   console.error('[Service Worker] Unhandled promise rejection:', event.reason);
 });
+
+// Alarm listener for service worker keep-alive heartbeat
+if (chrome.alarms) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'exportKeepAlive') {
+      console.log('[Service Worker] Keep-alive alarm heartbeat received');
+    }
+  });
+}
 
 console.log('[Service Worker] Loaded and ready');

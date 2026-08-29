@@ -17,8 +17,12 @@ import { PackageXMLGenerator } from '../lib/package-xml-generator.js';
 import { groupMetadataTypes, CATEGORY_DEFINITIONS } from './modules/categories.js';
 import { PresetsManager } from './modules/presets-manager.js';
 import { highlightXml, updatePreviewTabBadges } from './modules/xml-highlighter.js';
+import { ExportController } from './modules/export-controller.js';
+import { ExportHistory } from './modules/export-history.js';
 
 const presetsManager = new PresetsManager();
+const exportController = new ExportController();
+const exportHistory = new ExportHistory();
 
 // ========================================
 // DOM ELEMENT REFERENCES
@@ -95,7 +99,20 @@ const elements = {
   destructiveConfirmCount: document.getElementById('destructive-confirm-count'),
   destructiveConfirmList: document.getElementById('destructive-confirm-list'),
   destructiveConfirmCancel: document.getElementById('destructive-confirm-cancel'),
-  destructiveConfirmProceed: document.getElementById('destructive-confirm-proceed')
+  destructiveConfirmProceed: document.getElementById('destructive-confirm-proceed'),
+
+  // Preset JSON Import/Export
+  exportPresetsBtn: document.getElementById('export-presets-btn'),
+  importPresetsBtn: document.getElementById('import-presets-btn'),
+  presetFileInput: document.getElementById('preset-file-input'),
+
+  // Export History modal
+  historyBtn: document.getElementById('history-btn'),
+  exportHistoryModal: document.getElementById('export-history-modal'),
+  exportHistoryOverlay: document.getElementById('export-history-overlay'),
+  exportHistoryClose: document.getElementById('export-history-close'),
+  exportHistoryList: document.getElementById('export-history-list'),
+  clearHistoryBtn: document.getElementById('clear-history-btn')
 };
 
 // ========================================
@@ -113,8 +130,19 @@ let selectedMembers = new Map();
 let selectedDestructiveMembers = new Map();
 // Active preview tab: 'package' or 'destructive'
 let activePreviewTab = 'package';
-// Cache for fetched members to avoid repeated API calls
+// Cache for fetched members to avoid repeated API calls (LRU limit: 50)
 let membersCache = new Map();
+const MAX_MEMBERS_CACHE_SIZE = 50;
+
+function setMembersCache(metadataType, members) {
+  if (membersCache.has(metadataType)) {
+    membersCache.delete(metadataType);
+  } else if (membersCache.size >= MAX_MEMBERS_CACHE_SIZE) {
+    const oldestKey = membersCache.keys().next().value;
+    membersCache.delete(oldestKey);
+  }
+  membersCache.set(metadataType, members);
+}
 let exportInProgress = false;
 
 // Export polling settings
@@ -957,7 +985,7 @@ async function loadMembers(metadataType, membersContainer, badge) {
     
     if (response.success && response.members) {
       const members = response.members;
-      membersCache.set(metadataType, members);
+      setMembersCache(metadataType, members);
       
       // Update badge
       badge.textContent = members.length;
@@ -1913,7 +1941,7 @@ function filterMetadataTypes() {
               payload: { orgInfo, metadataType: typeName }
             });
             if (resp && resp.success && resp.members) {
-              membersCache.set(typeName, resp.members);
+              setMembersCache(typeName, resp.members);
             }
           } catch (e) {
             // Background lazy search error handled silently
@@ -1968,7 +1996,7 @@ async function preloadAllMembers() {
             payload: { orgInfo, metadataType: typeName }
           });
           if (response.success && response.members) {
-            membersCache.set(typeName, response.members);
+            setMembersCache(typeName, response.members);
             
             const container = Array.from(containers).find(c => c.querySelector('.metadata-type-name')?.textContent === typeName);
             const badge = container?.querySelector('.member-count-badge');
@@ -2720,6 +2748,16 @@ async function doStartExport() {
     if (!response.success) {
       throw new Error(response.error || 'Export failed');
     }
+
+    // Log to ExportHistory
+    let totalMemberCount = 0;
+    typesWithMembers.forEach(t => { totalMemberCount += t.members.length; });
+    await exportHistory.logExport({
+      instanceUrl: orgInfo?.instance || orgInfo?.url || 'Salesforce',
+      typeCount: selectedMetadataTypes.size,
+      memberCount: totalMemberCount,
+      destructiveCount: selectedDestructiveMembers.size
+    });
     
     console.log('[App] Export initiated:', response.retrieveId);
     showExportProgress(getChecklistMessage('Pending', 0), 20);
@@ -2889,6 +2927,51 @@ function updateExportButtonState() {
 // ========================================
 
 /**
+ * Open export history modal and populate entries
+ */
+async function openExportHistoryModal() {
+  if (!elements.exportHistoryModal) return;
+  elements.exportHistoryModal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  const history = await exportHistory.getHistory();
+  if (elements.exportHistoryList) {
+    elements.exportHistoryList.innerHTML = '';
+    if (history.length === 0) {
+      elements.exportHistoryList.innerHTML = '<li style="color: var(--text-muted); text-align: center; padding: 16px;">No export history recorded yet</li>';
+      return;
+    }
+
+    history.forEach(item => {
+      const li = document.createElement('li');
+      const dateStr = new Date(item.timestamp).toLocaleString();
+      li.style.padding = '8px 12px';
+      li.style.borderBottom = '1px solid var(--border-color)';
+      li.style.listStyle = 'none';
+      li.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong style="color: var(--text-primary);">${item.instanceUrl}</strong>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">${dateStr}</span>
+        </div>
+        <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px;">
+          Types: <strong>${item.typeCount}</strong> | Components: <strong>${item.memberCount}</strong> ${item.destructiveCount > 0 ? `<span style="color: var(--brand-danger);">| Deletions: ${item.destructiveCount}</span>` : ''}
+        </div>
+      `;
+      elements.exportHistoryList.appendChild(li);
+    });
+  }
+}
+
+/**
+ * Close export history modal
+ */
+function closeExportHistoryModal() {
+  if (!elements.exportHistoryModal) return;
+  elements.exportHistoryModal.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+/**
  * Attach all event listeners
  */
 function attachEventListeners() {
@@ -2912,6 +2995,51 @@ function attachEventListeners() {
   }
   if (elements.modalOverlay) {
     elements.modalOverlay.addEventListener('click', closeOrgModal);
+  }
+
+  // Preset JSON Export/Import
+  if (elements.exportPresetsBtn) {
+    elements.exportPresetsBtn.addEventListener('click', () => {
+      presetsManager.exportPresetsToJSON();
+    });
+  }
+  if (elements.importPresetsBtn) {
+    elements.importPresetsBtn.addEventListener('click', () => {
+      if (elements.presetFileInput) elements.presetFileInput.click();
+    });
+  }
+  if (elements.presetFileInput) {
+    elements.presetFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const count = await presetsManager.importPresetsFromJSON(text, orgInfo?.instance || 'default');
+        presetsManager.populateDropdown(elements.presetDropdown);
+        showSuccess(`Successfully imported ${count} preset(s)!`);
+      } catch (err) {
+        showError('Failed to import presets: ' + err.message);
+      }
+      e.target.value = '';
+    });
+  }
+
+  // Export History
+  if (elements.historyBtn) {
+    elements.historyBtn.addEventListener('click', openExportHistoryModal);
+  }
+  if (elements.exportHistoryClose) {
+    elements.exportHistoryClose.addEventListener('click', closeExportHistoryModal);
+  }
+  if (elements.exportHistoryOverlay) {
+    elements.exportHistoryOverlay.addEventListener('click', closeExportHistoryModal);
+  }
+  if (elements.clearHistoryBtn) {
+    elements.clearHistoryBtn.addEventListener('click', async () => {
+      await exportHistory.clearHistory();
+      await openExportHistoryModal();
+      showSuccess('Export history cleared');
+    });
   }
 
   // Settings: Export timeout (minutes)

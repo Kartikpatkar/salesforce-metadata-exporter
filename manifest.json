@@ -42,9 +42,11 @@
   "permissions": [
     "tabs",
     "storage",
+    "unlimitedStorage",
     "downloads",
     "activeTab",
-    "cookies"
+    "cookies",
+    "alarms"
   ],
 
   "host_permissions": [
