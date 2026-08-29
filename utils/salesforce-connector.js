@@ -347,6 +347,9 @@ class SalesforceConnector {
                 return { isAuthenticated: false };
             }
 
+            const url = new URL(tab.url);
+            const hostname = url.hostname;
+
             const apiBase = this._getApiBaseFromHostname(hostname, url.protocol);
             const apiHostname = apiBase ? new URL(apiBase).hostname : hostname;
 

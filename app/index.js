@@ -14,6 +14,11 @@
  */
 
 import { PackageXMLGenerator } from '../lib/package-xml-generator.js';
+import { groupMetadataTypes, CATEGORY_DEFINITIONS } from './modules/categories.js';
+import { PresetsManager } from './modules/presets-manager.js';
+import { highlightXml, updatePreviewTabBadges } from './modules/xml-highlighter.js';
+
+const presetsManager = new PresetsManager();
 
 // ========================================
 // DOM ELEMENT REFERENCES
@@ -723,80 +728,196 @@ async function loadMetadataTypes(forceRefresh = false) {
 }
 
 /**
- * Render metadata type checkboxes dynamically
+ * Render metadata type checkboxes dynamically with category groupings
  * @param {Array} metadataTypes - Array of metadata type objects from describeMetadata
  */
 function renderMetadataTypes(metadataTypes) {
-  console.log('[App] Rendering metadata types:', metadataTypes.length);
-  console.log('[App] First 10 metadata types:', metadataTypes.slice(0, 10).map(t => t.xmlName));
+  console.log('[App] Rendering metadata types with category grouping:', metadataTypes.length);
   
   const metadataSection = document.getElementById('metadata-types');
-  metadataSection.innerHTML = ''; // Clear loading state
+  metadataSection.innerHTML = '';
   
-  if (metadataTypes.length === 0) {
+  if (!metadataTypes || metadataTypes.length === 0) {
     metadataSection.innerHTML = '<p>No metadata types available</p>';
     return;
   }
+
+  const grouped = groupMetadataTypes(metadataTypes);
   
-  // Create expandable item for each metadata type
-  metadataTypes.forEach(type => {
-    const container = document.createElement('div');
-    container.className = 'metadata-type-container';
-    
-    // Main checkbox label with expand arrow
-    const mainLabel = document.createElement('label');
-    mainLabel.className = 'metadata-type-label';
-    
-    // Expand/collapse arrow
+  grouped.forEach(({ category, types }) => {
+    if (types.length === 0) return;
+
+    const groupEl = document.createElement('div');
+    groupEl.className = 'category-group';
+    groupEl.id = `cat-${category.id}`;
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'category-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'category-title-wrap';
+
     const arrow = document.createElement('span');
-    arrow.className = 'expand-arrow';
+    arrow.className = 'category-toggle-arrow';
     arrow.textContent = '▶';
-    arrow.title = 'Click to view members';
-    
-    // Checkbox for the type
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = type.xmlName;
-    checkbox.className = 'metadata-type-checkbox';
-    checkbox.addEventListener('change', (e) => handleMetadataSelection(e, type));
-    
-    // Type name
-    const typeName = document.createElement('span');
-    typeName.className = 'metadata-type-name';
-    typeName.textContent = type.xmlName;
-    
-    // Member count badge (will be populated when expanded)
+
+    const title = document.createElement('span');
+    title.className = 'category-title';
+    title.textContent = `${category.icon} ${category.name}`;
+
     const badge = document.createElement('span');
-    badge.className = 'member-count-badge hidden';
-    badge.textContent = '0';
-    
-    mainLabel.appendChild(arrow);
-    mainLabel.appendChild(checkbox);
-    mainLabel.appendChild(typeName);
-    mainLabel.appendChild(badge);
-    
-    // Members container (initially hidden)
-    const membersContainer = document.createElement('div');
-    membersContainer.className = 'members-container hidden';
-    membersContainer.id = `members-${type.xmlName}`;
-    
-    // Arrow click to expand/collapse
-    arrow.addEventListener('click', async (e) => {
+    badge.className = 'category-badge';
+    badge.id = `cat-badge-${category.id}`;
+    badge.textContent = `0 / ${types.length}`;
+
+    titleWrap.appendChild(arrow);
+    titleWrap.appendChild(title);
+    titleWrap.appendChild(badge);
+
+    const actions = document.createElement('div');
+    actions.className = 'category-actions';
+
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'category-select-all-btn';
+    selectAllBtn.textContent = 'Select All';
+    selectAllBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      e.preventDefault();
-      await toggleMembersView(type.xmlName, arrow, membersContainer, badge);
+      toggleCategorySelection(category.id, types, true);
     });
-    
-    container.appendChild(mainLabel);
-    container.appendChild(membersContainer);
-    metadataSection.appendChild(container);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'category-select-all-btn';
+    clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCategorySelection(category.id, types, false);
+    });
+
+    actions.appendChild(selectAllBtn);
+    actions.appendChild(clearBtn);
+
+    headerEl.appendChild(titleWrap);
+    headerEl.appendChild(actions);
+
+    headerEl.addEventListener('click', () => {
+      groupEl.classList.toggle('open');
+    });
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'category-body';
+
+    types.forEach(type => {
+      const container = document.createElement('div');
+      container.className = 'metadata-type-container';
+      container.dataset.category = category.id;
+      
+      const mainLabel = document.createElement('label');
+      mainLabel.className = 'metadata-type-label';
+      
+      const typeArrow = document.createElement('span');
+      typeArrow.className = 'expand-arrow';
+      typeArrow.textContent = '▶';
+      typeArrow.title = 'Click to view members';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = type.xmlName;
+      checkbox.className = 'metadata-type-checkbox';
+      checkbox.addEventListener('change', (e) => {
+        handleMetadataSelection(e, type);
+        updateCategoryBadge(category.id);
+      });
+      
+      const typeName = document.createElement('span');
+      typeName.className = 'metadata-type-name';
+      typeName.textContent = type.xmlName;
+      
+      const typeBadge = document.createElement('span');
+      typeBadge.className = 'member-count-badge hidden';
+      typeBadge.textContent = '0';
+      
+      mainLabel.appendChild(typeArrow);
+      mainLabel.appendChild(checkbox);
+      mainLabel.appendChild(typeName);
+      mainLabel.appendChild(typeBadge);
+      
+      const membersContainer = document.createElement('div');
+      membersContainer.className = 'members-container hidden';
+      membersContainer.id = `members-${type.xmlName}`;
+      
+      typeArrow.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        await toggleMembersView(type.xmlName, typeArrow, membersContainer, typeBadge);
+      });
+      
+      container.appendChild(mainLabel);
+      container.appendChild(membersContainer);
+      bodyEl.appendChild(container);
+    });
+
+    groupEl.appendChild(headerEl);
+    groupEl.appendChild(bodyEl);
+    metadataSection.appendChild(groupEl);
   });
   
   // Update checkbox references
   elements.metadataCheckboxes = document.querySelectorAll('.metadata-type-checkbox');
-  
-  console.log('[App] Rendered metadata type checkboxes:', elements.metadataCheckboxes.length);
-  console.log('[App] Sample checkbox values:', Array.from(elements.metadataCheckboxes).slice(0, 10).map(cb => cb.value));
+  updateAllCategoryBadges();
+}
+
+/**
+ * Toggle all checkboxes in a category
+ */
+function toggleCategorySelection(categoryId, types, select) {
+  types.forEach(type => {
+    const typeName = type.xmlName || type.name || type;
+    const checkbox = document.querySelector(`.metadata-type-checkbox[value="${typeName}"]`);
+    if (checkbox) {
+      if (select) {
+        selectedMetadataTypes.add(typeName);
+        if (!selectedMembers.has(typeName)) {
+          selectedMembers.set(typeName, '*');
+        }
+        checkbox.checked = true;
+      } else {
+        selectedMetadataTypes.delete(typeName);
+        selectedMembers.delete(typeName);
+        checkbox.checked = false;
+      }
+    }
+  });
+  saveSelections();
+  updatePackagePreview();
+  updateExportButtonState();
+  updateCategoryBadge(categoryId);
+}
+
+/**
+ * Update category counter badge
+ */
+function updateCategoryBadge(categoryId) {
+  const badge = document.getElementById(`cat-badge-${categoryId}`);
+  const group = document.getElementById(`cat-${categoryId}`);
+  if (!badge || !group) return;
+
+  const checkboxes = group.querySelectorAll('.metadata-type-checkbox');
+  const checked = group.querySelectorAll('.metadata-type-checkbox:checked');
+  badge.textContent = `${checked.length} / ${checkboxes.length}`;
+  if (checked.length > 0) {
+    badge.classList.add('has-selected');
+  } else {
+    badge.classList.remove('has-selected');
+  }
+}
+
+/**
+ * Update all category counter badges
+ */
+function updateAllCategoryBadges() {
+  CATEGORY_DEFINITIONS.forEach(cat => updateCategoryBadge(cat.id));
 }
 
 /**
@@ -1170,17 +1291,13 @@ async function saveSelections() {
 // PRESETS MANAGER LOGIC
 // ========================================
 
-let currentPresets = {};
-
 /**
  * Load saved presets for the current org
  */
 async function loadPresets() {
   if (!orgInfo || !orgInfo.instanceUrl) return;
-  const key = `metadataPresets_${orgInfo.instanceUrl}`;
   try {
-    const result = await chrome.storage.local.get(key);
-    currentPresets = result[key] || {};
+    await presetsManager.loadPresets(orgInfo.instanceUrl);
     populatePresetDropdown();
   } catch (error) {
     console.error('[Presets] Failed to load presets:', error);
@@ -1192,16 +1309,7 @@ async function loadPresets() {
  */
 function populatePresetDropdown() {
   if (!elements.presetDropdown) return;
-  
-  elements.presetDropdown.innerHTML = '<option value="">-- Apply Preset --</option>';
-  
-  Object.keys(currentPresets).sort().forEach(name => {
-    const option = document.createElement('option');
-    option.value = name;
-    option.textContent = name;
-    elements.presetDropdown.appendChild(option);
-  });
-  
+  presetsManager.populateDropdown(elements.presetDropdown);
   if (elements.deletePresetBtn) {
     elements.deletePresetBtn.style.display = 'none';
   }
@@ -1211,13 +1319,13 @@ function populatePresetDropdown() {
  * Apply the selected preset checkboxes and member selections
  */
 async function applyUserPreset(name) {
-  if (!name || !currentPresets[name]) {
+  if (!name || !presetsManager.currentPresets[name]) {
     if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'none';
     return;
   }
   
   if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'inline-block';
-  const preset = currentPresets[name];
+  const preset = presetsManager.currentPresets[name];
   
   // Reset current selection
   selectedMetadataTypes.clear();
@@ -1265,6 +1373,7 @@ async function applyUserPreset(name) {
   
   // Re-run search/filtering if active
   filterMetadataTypes();
+  updateAllCategoryBadges();
   
   updateExportButtonState();
   updatePackagePreview();
@@ -1300,57 +1409,20 @@ function updateRenderedMemberCheckboxes(metadataType) {
  * Save current selections under a preset name
  */
 async function saveUserPreset(name) {
-  name = name.trim();
-  if (!name) {
-    showError('Preset name cannot be empty.');
-    return;
-  }
-  
-  if (selectedMetadataTypes.size === 0) {
-    showError('Select metadata types before saving a preset.');
-    return;
-  }
-  
-  if (!orgInfo || !orgInfo.instanceUrl) {
-    showError('No active Salesforce session.');
-    return;
-  }
-  
-  // Serialize Set values to standard arrays for JSON storage compatibility
-  const serializedMembers = {};
-  for (const [type, selection] of selectedMembers.entries()) {
-    if (selection === '*') {
-      serializedMembers[type] = '*';
-    } else if (selection instanceof Set) {
-      serializedMembers[type] = Array.from(selection);
-    } else if (Array.isArray(selection)) {
-      serializedMembers[type] = selection;
-    }
-  }
-  
-  const newPreset = {
-    types: Array.from(selectedMetadataTypes),
-    members: serializedMembers,
-    createdAt: Date.now()
-  };
-  
-  const key = `metadataPresets_${orgInfo.instanceUrl}`;
-  currentPresets[name] = newPreset;
-  
   try {
-    await chrome.storage.local.set({ [key]: currentPresets });
+    await presetsManager.savePreset(name, orgInfo?.instanceUrl, selectedMetadataTypes, selectedMembers);
     populatePresetDropdown();
-    if (elements.presetDropdown) elements.presetDropdown.value = name;
+    if (elements.presetDropdown) elements.presetDropdown.value = name.trim();
     if (elements.deletePresetBtn) elements.deletePresetBtn.style.display = 'inline-block';
     
     // Hide inline input
     if (elements.presetNameInputContainer) elements.presetNameInputContainer.classList.add('hidden');
     if (elements.presetNameInput) elements.presetNameInput.value = '';
     
-    showSuccess(`Preset "${name}" saved!`);
+    showSuccess(`Preset "${name.trim()}" saved!`);
   } catch (error) {
     console.error('[Presets] Failed to save preset:', error);
-    showError('Failed to save preset.');
+    showError(error.message || 'Failed to save preset.');
   }
 }
 
@@ -1360,17 +1432,14 @@ async function saveUserPreset(name) {
 async function deleteUserPreset() {
   if (!elements.presetDropdown) return;
   const name = elements.presetDropdown.value;
-  if (!name || !currentPresets[name]) return;
+  if (!name || !presetsManager.currentPresets[name]) return;
   
   if (!confirm(`Are you sure you want to delete the preset "${name}"?`)) {
     return;
   }
   
-  delete currentPresets[name];
-  const key = `metadataPresets_${orgInfo.instanceUrl}`;
-  
   try {
-    await chrome.storage.local.set({ [key]: currentPresets });
+    await presetsManager.deletePreset(name, orgInfo?.instanceUrl);
     populatePresetDropdown();
     showSuccess(`Preset "${name}" deleted.`);
   } catch (error) {
@@ -1717,14 +1786,17 @@ function applyPreset(presetName) {
   saveSelections();
 }
 
+let searchDebounceTimer = null;
+
 /**
- * Filter metadata types based on search input
+ * Filter metadata types and categories based on search input
  */
 function filterMetadataTypes() {
   const searchTerm = elements.metadataSearch.value.toLowerCase().trim();
   const searchMode = elements.searchModeMembers && elements.searchModeMembers.checked ? 'members' : 'types';
   
   const metadataContainer = document.getElementById('metadata-types');
+  const categoryGroups = metadataContainer.querySelectorAll('.category-group');
   const containers = metadataContainer.querySelectorAll('.metadata-type-container');
   
   if (elements.preloadMembersBtn) {
@@ -1803,6 +1875,54 @@ function filterMetadataTypes() {
       }
     }
   });
+
+  // Update category group visibility
+  categoryGroups.forEach(group => {
+    const containers = Array.from(group.querySelectorAll('.metadata-type-container'));
+    const hasVisible = containers.some(c => c.style.display !== 'none');
+    
+    if (hasVisible) {
+      group.style.display = 'block';
+      if (searchTerm.length > 0) {
+        group.classList.add('open');
+      }
+    } else {
+      group.style.display = 'none';
+    }
+  });
+
+  // Lazy search background loader for un-cached types in member search mode
+  if (searchMode === 'members' && searchTerm.length >= 2 && orgInfo) {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(async () => {
+      const unCachedVisibleTypes = [];
+      containers.forEach(c => {
+        if (c.style.display !== 'none') {
+          const typeName = c.querySelector('.metadata-type-name')?.textContent;
+          if (typeName && !membersCache.has(typeName) && unCachedVisibleTypes.length < 5) {
+            unCachedVisibleTypes.push(typeName);
+          }
+        }
+      });
+
+      if (unCachedVisibleTypes.length > 0) {
+        for (const typeName of unCachedVisibleTypes) {
+          try {
+            const resp = await chrome.runtime.sendMessage({
+              type: 'GET_METADATA_MEMBERS',
+              payload: { orgInfo, metadataType: typeName }
+            });
+            if (resp && resp.success && resp.members) {
+              membersCache.set(typeName, resp.members);
+            }
+          } catch (e) {
+            // Background lazy search error handled silently
+          }
+        }
+        filterMetadataTypes();
+      }
+    }, 400);
+  }
 }
 
 let preloadingMembers = false;
@@ -2253,55 +2373,17 @@ function switchPreviewTab(tab) {
 }
 
 /**
- * Simple, fast XML syntax highlighter
- * @param {string} xml - Raw XML string
- * @returns {string} HTML string with syntax highlighting classes
- */
-function highlightXml(xml) {
-  if (!xml) return '';
-  let escaped = xml
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
-  // Highlight comments
-  escaped = escaped.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="xml-comment">$1</span>');
-
-  // Highlight XML tags & attributes
-  escaped = escaped.replace(/(&lt;\/?)([\w:-]+)([\s\S]*?)(\/?&gt;)/g, (match, open, tagName, attrs, close) => {
-    const formattedAttrs = attrs.replace(/([\w:-]+)=(&quot;.*?&quot;)/g, '<span class="xml-attr-name">$1</span>=<span class="xml-attr-value">$2</span>');
-    return `<span class="xml-tag">${open}<span class="xml-tag-name">${tagName}</span>${formattedAttrs}${close}</span>`;
-  });
-
-  return escaped;
-}
-
-/**
- * Update preview tab count badges
- */
-function updatePreviewTabBadges() {
-  const packageTypesCount = selectedMetadataTypes.size;
-  let destructiveCount = 0;
-  selectedDestructiveMembers.forEach(set => {
-    if (set instanceof Set) destructiveCount += set.size;
-  });
-
-  if (elements.tabPackage) {
-    elements.tabPackage.innerHTML = `📄 package.xml <span class="tab-count-badge">${packageTypesCount}</span>`;
-  }
-  if (elements.tabDestructive) {
-    elements.tabDestructive.innerHTML = `🗑️ destructiveChanges.xml <span class="tab-count-badge">${destructiveCount}</span>`;
-  }
-}
-
-/**
  * Update package.xml / destructiveChanges.xml preview based on the active tab and selections
  */
 function updatePackagePreview() {
   console.log('[App] Updating package preview. Tab:', activePreviewTab, 'Selected types:', selectedMetadataTypes.size);
   
-  updatePreviewTabBadges();
+  let destructiveCount = 0;
+  selectedDestructiveMembers.forEach(set => {
+    if (set instanceof Set) destructiveCount += set.size;
+  });
+  updatePreviewTabBadges(elements, selectedMetadataTypes.size, destructiveCount);
+
   const previewCode = elements.packagePreview.querySelector('code');
   
   if (activePreviewTab === 'destructive') {

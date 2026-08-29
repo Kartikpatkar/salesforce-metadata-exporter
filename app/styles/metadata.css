@@ -4,9 +4,7 @@
 
 /* Checkbox Grid */
 .checkbox-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: block;
   overflow-y: auto;
   padding-right: 0.5rem;
   height: 55vh;
