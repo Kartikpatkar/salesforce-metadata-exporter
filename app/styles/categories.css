@@ -71,20 +71,38 @@
   gap: 8px;
 }
 
-.category-select-all-btn {
-  background: none;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 4px 8px;
+.category-select-btn {
   font-size: var(--font-xs);
-  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.category-select-all-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--text-muted);
+.category-select-btn.select-all {
+  background: rgba(72, 187, 120, 0.12);
+  border: 1px solid rgba(72, 187, 120, 0.4);
+  color: var(--brand-success-hover);
+}
+
+.category-select-btn.select-all:hover {
+  background: rgba(72, 187, 120, 0.25);
+  border-color: var(--brand-success);
+  transform: translateY(-1px);
+}
+
+.category-select-btn.clear {
+  background: rgba(237, 137, 54, 0.12);
+  border: 1px solid rgba(237, 137, 54, 0.4);
+  color: var(--brand-warning-hover);
+}
+
+.category-select-btn.clear:hover {
+  background: rgba(237, 137, 54, 0.25);
+  border-color: var(--brand-warning);
+  transform: translateY(-1px);
 }
 
 .category-body {

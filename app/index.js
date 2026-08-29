@@ -807,7 +807,7 @@ function renderMetadataTypes(metadataTypes) {
 
     const selectAllBtn = document.createElement('button');
     selectAllBtn.type = 'button';
-    selectAllBtn.className = 'category-select-all-btn';
+    selectAllBtn.className = 'category-select-btn select-all';
     selectAllBtn.textContent = 'Select All';
     selectAllBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -816,7 +816,7 @@ function renderMetadataTypes(metadataTypes) {
 
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
-    clearBtn.className = 'category-select-all-btn';
+    clearBtn.className = 'category-select-btn clear';
     clearBtn.textContent = 'Clear';
     clearBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1277,6 +1277,7 @@ async function loadSavedSelections() {
 
     selectedMetadataTypes.forEach(type => updateMemberCountBadge(type));
     selectedDestructiveMembers.forEach((val, type) => updateMemberCountBadge(type));
+    updateAllCategoryBadges();
     
     updateExportButtonState();
     updateDestructiveWarningUI();
