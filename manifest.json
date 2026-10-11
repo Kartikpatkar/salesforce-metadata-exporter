@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Salesforce Metadata Exporter",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Export Salesforce metadata (not data) as a ZIP file using the Metadata API. Requires active Salesforce session.",
   
   "icons": {
@@ -40,10 +40,13 @@
   ],
 
   "permissions": [
+    "tabs",
     "storage",
+    "unlimitedStorage",
     "downloads",
     "activeTab",
-    "cookies"
+    "cookies",
+    "alarms"
   ],
 
   "host_permissions": [
@@ -55,7 +58,9 @@
     "https://*.salesforce-setup.com/*",
     "https://*.my.salesforce-setup.com/*",
     "https://login.salesforce.com/*",
-    "https://test.salesforce.com/*"
+    "https://test.salesforce.com/*",
+    "https://api.github.com/*",
+    "https://github.com/*"
   ],
 
   "content_security_policy": {

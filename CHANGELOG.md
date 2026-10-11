@@ -9,6 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - _No unreleased changes._
 
+## [1.2.0] - 2026-10-12
+
+### Added
+
+#### 🚀 GitHub Repository Push Integration
+- **Direct GitHub export**: Push exported Salesforce metadata directly into a GitHub repository without manual download and extract.
+- **Personal Access Token authentication**: Secure PAT input with inline link to generate tokens with required `repo` scope.
+- **Repository & branch picker**: Select target user/org repository and target branch from dynamic dropdowns.
+- **Custom target directory**: Define destination folder path within the repository (defaults to active org name).
+- **Commit message support**: Provide custom commit messages for automated commits.
+- **UTF-8 safe blob creation**: Base64 encoding pipeline ensuring binary and multi-byte UTF-8 file integrity during GitHub Trees/Blobs API calls.
+
+#### 🗂️ Categorized Metadata Grouping
+- **Smart categories**: Metadata types organized into functional categories:
+  - **Development**: Apex classes, triggers, Aura, LWC, Visualforce, Custom Metadata.
+  - **Layouts & UI**: Page layouts, flexipages, compact layouts, tabs, custom applications.
+  - **Security & Access**: Profiles, permission sets, sharing rules.
+  - **Business Logic**: Flows, workflow rules, approval processes, validation rules.
+  - **System & Admin**: Custom objects, fields, labels, global value sets, settings.
+- **Category toolbar & count badges**: Real-time counter badges reflecting active selections per category.
+- **Bulk category actions**: Select all or clear all components within a selected category.
+
+#### 🕒 Export History Tracking
+- **Persistent export logs**: Track recent export sessions with timestamps, component counts, export status, and destination.
+- **Inline history drawer**: View past export activity directly from the extension UI.
+
+#### 📤 Preset JSON Import / Export
+- **Backup & share presets**: Export saved selection presets to a portable JSON file.
+- **Import presets**: Import preset files to restore selections across browsers and team members.
+
+#### ⚙️ CLI-Safe Metadata Filter
+- **Filter non-CLI types**: Optional checkbox filter to hide metadata types unsupported by the Salesforce CLI (`sf` / `sfdx`).
+
+#### 🔄 Autonomous Background Export & Keep-Alive
+- **Service worker keep-alive**: `chrome.alarms` keep-alive pinging prevents service worker termination during long-running exports in enterprise orgs.
+- **Autonomous polling**: Export status polling runs reliably in background service worker.
+
+### Changed
+- **Modular architecture**: Decomposed large monolith script into dedicated UI and business logic modules (`app/ui/*`, `app/modules/*`).
+- **Cleaned permissions**: Removed unused `identity` permission to maintain strict least-privilege compliance.
+
 ## [1.1.0] - 2026-06-03
 
 ### Added

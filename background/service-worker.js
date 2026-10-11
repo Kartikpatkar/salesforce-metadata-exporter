@@ -341,7 +341,7 @@ async function handleStartExport(payload, sendResponse) {
   try {
     console.log('[Service Worker] Starting export workflow...', payload);
     
-    const { orgInfo, typesWithMembers } = payload;
+    const { orgInfo, typesWithMembers, skipDownload } = payload;
     
     // Validate payload
     if (!orgInfo || !orgInfo.sessionId) {
@@ -359,14 +359,19 @@ async function handleStartExport(payload, sendResponse) {
     const retrieveId = await initiateMetadataRetrieve(orgInfo, packageXML);
     
     // Step 3 - Store retrieve ID and start polling
-    await storeExportState({
+    const exportStateObj = {
       retrieveId,
       orgInfo,
       status: 'InProgress',
       startTime: Date.now(),
       downloaded: false,  // Track if already downloaded
+      skipDownload: !!skipDownload,
       selectedTypes: typesWithMembers.map(t => t.name)
-    });
+    };
+    await storeExportState(exportStateObj);
+    
+    // Start autonomous background polling
+    startBackgroundExportPolling(retrieveId, orgInfo);
     
     sendResponse({ success: true, retrieveId });
     
@@ -381,6 +386,83 @@ async function handleStartExport(payload, sendResponse) {
     sendResponse({ success: false, error: error.message });
     notifyPopup('EXPORT_ERROR', { error: error.message });
   }
+}
+
+let activePollingTask = null;
+
+/**
+ * Autonomous background polling in Service Worker
+ */
+function startBackgroundExportPolling(retrieveId, orgInfo) {
+  if (activePollingTask) {
+    clearInterval(activePollingTask);
+    activePollingTask = null;
+  }
+
+  // Create keep-alive alarm to prevent Manifest V3 Service Worker termination
+  try {
+    chrome.alarms.create('exportKeepAlive', { periodInMinutes: 0.25 });
+  } catch (e) {
+    console.warn('[Service Worker] Could not create alarm:', e);
+  }
+  
+  const pollIntervalMs = 4000;
+  const maxAttempts = 360; // 24 minutes
+  let attempts = 0;
+
+  activePollingTask = setInterval(async () => {
+    try {
+      const state = await getExportState();
+      if (!state || state.retrieveId !== retrieveId || state.downloaded) {
+        clearInterval(activePollingTask);
+        activePollingTask = null;
+        return;
+      }
+
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(activePollingTask);
+        activePollingTask = null;
+        chrome.alarms.clear('exportKeepAlive').catch(() => {});
+        await clearExportState();
+        notifyPopup('EXPORT_ERROR', { error: 'Export timed out on server' });
+        return;
+      }
+
+      const api = new SalesforceMetadataAPI(state.orgInfo || orgInfo);
+      const retrieveStatus = await api.checkRetrieveStatus(state.retrieveId);
+
+      state.status = retrieveStatus.state;
+      state.done = retrieveStatus.done;
+
+      if (retrieveStatus.done) {
+        clearInterval(activePollingTask);
+        activePollingTask = null;
+        chrome.alarms.clear('exportKeepAlive').catch(() => {});
+
+        if (retrieveStatus.success && retrieveStatus.zipFile) {
+          if (!state.downloaded) {
+            state.downloaded = true;
+            state.zipFile = retrieveStatus.zipFile;
+            await storeExportState(state);
+            if (!state.skipDownload) {
+              console.log('[Service Worker] Triggering background ZIP download');
+              await downloadZipFile(retrieveStatus.zipFile, state);
+              await clearExportState();
+            }
+            notifyPopup('EXPORT_COMPLETE', { success: true });
+          }
+        } else {
+          await clearExportState();
+          notifyPopup('EXPORT_ERROR', { error: retrieveStatus.errorMessage || 'Export failed on Salesforce' });
+        }
+      } else {
+        await storeExportState(state);
+      }
+    } catch (err) {
+      console.warn('[Service Worker] Background poll tick error:', err.message);
+    }
+  }, pollIntervalMs);
 }
 
 /**
@@ -408,7 +490,6 @@ function generatePackageXML(typesWithMembers, apiVersion) {
  * @returns {Promise<string>} Retrieve request ID
  */
 async function initiateMetadataRetrieve(orgInfo, packageXML) {
-  // TODO: Use SalesforceMetadataAPI module
   console.log('[Service Worker] Calling Metadata API retrieve()...');
   
   const api = new SalesforceMetadataAPI(orgInfo);
@@ -501,18 +582,19 @@ async function handleGetExportStatus(sendResponse) {
     const state = await getExportState();
     
     if (!state) {
-      sendResponse({ success: true, status: 'NotStarted', progress: 0, message: 'No export in progress' });
+      sendResponse({ success: true, status: 'Succeeded', progress: 100, message: 'Export complete!', done: true });
       return;
     }
     
-    // If already downloaded, don't check again
-    if (state.downloaded) {
+    // If already downloaded or completed, return cached result without re-querying API
+    if (state.downloaded || state.done || state.status === 'Succeeded') {
       sendResponse({ 
         success: true, 
         status: 'Succeeded',
         progress: 100,
-        message: '✅ Export complete!',
-        done: true
+        message: 'Export complete!',
+        done: true,
+        zipFile: state.zipFile || null
       });
       return;
     }
@@ -525,15 +607,27 @@ async function handleGetExportStatus(sendResponse) {
     state.status = retrieveStatus.state;
     state.done = retrieveStatus.done;
     
-    // If complete, trigger download
+    // If complete, return status and zipFile
     if (retrieveStatus.done && retrieveStatus.success && retrieveStatus.zipFile) {
-      // Mark downloaded FIRST to prevent any race condition
       state.downloaded = true;
+      state.zipFile = retrieveStatus.zipFile;
       await storeExportState(state);
       
-      console.log('[Service Worker] Triggering download from GET_EXPORT_STATUS');
-      await downloadZipFile(retrieveStatus.zipFile, state);
-      await clearExportState();
+      if (!state.skipDownload) {
+        console.log('[Service Worker] Triggering download from GET_EXPORT_STATUS');
+        await downloadZipFile(retrieveStatus.zipFile, state);
+        await clearExportState();
+      }
+
+      sendResponse({
+        success: true,
+        status: 'Succeeded',
+        progress: 100,
+        message: 'Export complete!',
+        done: true,
+        zipFile: retrieveStatus.zipFile
+      });
+      return;
     } else {
       await storeExportState(state);
     }
@@ -572,6 +666,10 @@ async function handleGetExportStatus(sendResponse) {
  */
 async function handleCancelExport(sendResponse) {
   try {
+    if (activePollingTask) {
+      clearInterval(activePollingTask);
+      activePollingTask = null;
+    }
     await clearExportState();
     
     console.log('[Service Worker] Export cancelled');
@@ -620,5 +718,14 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
   console.error('[Service Worker] Unhandled promise rejection:', event.reason);
 });
+
+// Alarm listener for service worker keep-alive heartbeat
+if (chrome.alarms) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'exportKeepAlive') {
+      console.log('[Service Worker] Keep-alive alarm heartbeat received');
+    }
+  });
+}
 
 console.log('[Service Worker] Loaded and ready');

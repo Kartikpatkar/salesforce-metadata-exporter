@@ -1,7 +1,7 @@
 # ⚡ Salesforce Metadata Exporter – Package XML Generator & Metadata Explorer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-1.1.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/Version-1.2.0-blue.svg)](#)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg?logo=google-chrome)](https://chromewebstore.google.com/detail/mnkhginjgjbcmnfkcfnjbhpgnjfmeibd)
 [![Salesforce](https://img.shields.io/badge/Salesforce-Metadata%20API-00A1E0.svg)](#)
 
@@ -131,6 +131,32 @@ The extension focuses on **accuracy, speed, and clarity**, using **Salesforce To
 * **Stop Export** — cancel a running export mid-way using the Stop button
 
 > ⚠️ **Important**: Exporting with `destructiveChanges.xml` does **not** delete anything from your org. The manifest only takes effect when the ZIP is **deployed** to a Salesforce org using CLI, Ant, or Workbench.
+
+---
+
+### 🐙 Direct GitHub Repository Push
+
+* Push exported metadata directly to any GitHub repository and branch
+* Authenticate securely using a **Personal Access Token (PAT)** stored locally
+* Dynamic **repository and branch picker**
+* Set custom destination folder paths (defaults to active Salesforce org name)
+* Custom commit messages for clean Git audit histories
+* UTF-8 base64 encoding pipeline ensures zero binary corruption
+
+---
+
+### 🗂️ Categorized Metadata Groups & Presets
+
+* Organize and filter metadata by functional category:
+  * **Development**: Apex, Triggers, Aura, LWC, Visualforce, Custom Metadata
+  * **Layouts & UI**: Layouts, Flexipages, Tabs, Custom Applications
+  * **Security & Access**: Profiles, Permission Sets, Sharing Rules
+  * **Business Logic**: Flows, Workflow, Approval Processes, Validation Rules
+  * **System & Admin**: Custom Objects, Fields, Labels, Value Sets
+* Live component counter badges per category
+* **CLI-Safe filter**: Hide types unsupported by `sf` / `sfdx` CLI
+* **Export History**: View a log of recent export operations and statuses
+* **Preset JSON Import/Export**: Backup, restore, and share named selection presets as JSON files
 
 ---
 

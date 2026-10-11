@@ -39,6 +39,16 @@ function showToast(title, message, type = 'info', persistent = false) {
         <button class="toast-close" title="Close">×</button>
     `;
 
+    // Enforce max 3 visible toasts to prevent screen crowding
+    const existingToasts = toastContainer.querySelectorAll('.toast');
+    if (existingToasts.length >= 3) {
+        for (let i = 0; i <= existingToasts.length - 3; i++) {
+            if (existingToasts[i] && existingToasts[i].dataset.persistent !== 'true') {
+                dismissToast(existingToasts[i]);
+            }
+        }
+    }
+
     // Add the toast element to the container so it becomes visible
     toastContainer.appendChild(toast);
 

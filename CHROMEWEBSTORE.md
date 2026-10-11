@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Salesforce Metadata Exporter
 
-> Last Updated: 2026-06-03 | Version: 1.1.0
+> Last Updated: 2026-10-12 | Version: 1.2.0
 
 ## Store Listing
 
@@ -8,12 +8,12 @@
 Salesforce Metadata Exporter
 
 **Short Description** [REQUIRED]
-Export Salesforce metadata as a ZIP. Supports package.xml, destructiveChanges.xml, presets, member search & profile downsizing.
+Export Salesforce metadata as ZIP or push to GitHub. Generates package.xml, destructive changes, presets & profile downsizing.
 
 **Detailed Description** [REQUIRED]
 🚀 What is Salesforce Metadata Exporter?
 
-Salesforce Metadata Exporter is a lightweight Chrome extension that allows Salesforce developers and technical admins to export Salesforce metadata configuration files directly from a logged-in org into a downloadable ZIP file using the Metadata API.
+Salesforce Metadata Exporter is a lightweight Chrome extension that allows Salesforce developers and technical admins to export Salesforce metadata configuration files directly from a logged-in org into a downloadable ZIP file or push directly to a GitHub repository using the Metadata API.
 
 It is designed for quick audits, reviews, backups of configuration, and development workflows — without needing CLI tools or complex setups.
 
@@ -29,9 +29,27 @@ With a single click, you can export Salesforce metadata such as:
 • Custom Metadata Types
 • Flows (metadata definitions only)
 
-You can select what to export using a simple checkbox-based interface, built-in presets, or import an existing package.xml file.
+You can select what to export using category groups, presets, member search, or by importing an existing package.xml file.
 
-🔥 New in v1.1.0 — Major Update
+🔥 New in v1.2.0 — GitHub Push & Category Management
+
+🚀 GitHub Repository Push
+• Push exported metadata directly to any GitHub repository and branch you have access to.
+• Authenticate securely via Personal Access Token (stored locally on your machine).
+• Choose custom target directory (defaults to current org name) and custom commit messages.
+• Safe binary and UTF-8 base64 encoding prevents file corruption.
+
+🗂️ Categorized Metadata Grouping
+• Quick-filter metadata types by functional category: Development, Layouts & UI, Security & Access, Business Logic, System & Admin.
+• Live counter badges show selected components per category.
+• Bulk select or clear entire categories in one click.
+
+🕒 Export History & Preset Sharing
+• Export history drawer tracks recent exports with status and timestamps.
+• Backup and share selection presets as portable JSON files.
+• CLI-safe metadata filter hides components unsupported by Salesforce CLI.
+
+🔥 Previous Highlights (v1.1.0)
 
 🗑️ destructiveChanges.xml Generation
 • Mark individual metadata members for deletion using the trash icon on each row.
@@ -111,7 +129,7 @@ Found a bug or have a suggestion? Open an issue at https://github.com/Kartikpatk
 Developer Tools
 
 **Single Purpose** [REQUIRED]
-Exports Salesforce metadata configurations into a downloadable ZIP file using the Metadata API, and generates destructiveChanges.xml manifests for safe component deletion.
+Exports Salesforce metadata configurations into a downloadable ZIP file or directly to a GitHub repository using the Metadata API, and generates destructiveChanges.xml manifests for safe component deletion.
 
 **Primary Language** [REQUIRED]
 English
@@ -138,9 +156,12 @@ English
 | Permission | Type | Justification |
 |------------|------|---------------|
 | `storage` | permissions | Used to save user's selected metadata types, named presets, destructive selections, and custom timeout settings locally across browser sessions. |
+| `unlimitedStorage` | permissions | Required to store large metadata component caches, full org metadata listings, user presets, and export logs without exceeding quota limits. |
 | `downloads` | permissions | Required to trigger the browser download of the compiled metadata ZIP file once Salesforce API processing finishes. |
 | `activeTab` | permissions | Allows the extension to extract the URL of the tab where the action was clicked to identify the target Salesforce org context. |
+| `tabs` | permissions | Allows querying and focusing active Salesforce tabs for org context and opening GitHub Personal Access Token generation links. |
 | `cookies` | permissions | Used to query active session cookies ('sid') from the Salesforce domain in order to authenticate API requests directly. |
+| `alarms` | permissions | Implements keep-alive heartbeats to keep the Manifest V3 service worker active during long-running metadata retrieval operations in large orgs. |
 | `https://*.salesforce.com/*` | host_permissions | Allows the background script to make SOAP/REST web requests to the user's active Salesforce domain for metadata querying. |
 | `https://*.lightning.force.com/*` | host_permissions | Same as above. |
 | `https://*.my.salesforce.com/*` | host_permissions | Same as above. |
@@ -150,6 +171,8 @@ English
 | `https://*.my.salesforce-setup.com/*` | host_permissions | Same as above. |
 | `https://login.salesforce.com/*` | host_permissions | Allows login session monitoring during authentication flows. |
 | `https://test.salesforce.com/*` | host_permissions | Allows sandbox login session monitoring during authentication flows. |
+| `https://api.github.com/*` | host_permissions | Allows pushing exported metadata trees, blobs, and commits directly to user-specified GitHub repositories via GitHub REST API. |
+| `https://github.com/*` | host_permissions | Required for repository context and token management links. |
 
 ## Privacy & Data Use
 
@@ -191,6 +214,7 @@ https://github.com/Kartikpatkar/salesforce-metadata-exporter
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
-| 1.1.0 | 2026-06-03 | destructiveChanges.xml generation, preset manager, global member search, stop export, profile downsizing, safety confirmation modal. | Pending Publish |
+| 1.2.0 | 2026-10-12 | Direct GitHub repository push, categorized metadata grouping, export history drawer, preset JSON import/export, CLI-safe filter, modular architecture. | Pending Publish |
+| 1.1.0 | 2026-06-03 | destructiveChanges.xml generation, preset manager, global member search, stop export, profile downsizing, safety confirmation modal. | Published |
 | 1.0.3 | 2026-06-03 | Added package.xml upload/paste, configurable timeouts, and persistent export progress toasts. | Published |
 | 1.0.0 | 2026-05-15 | Initial release with core ZIP export functionality. | Published |

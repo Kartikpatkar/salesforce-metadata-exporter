@@ -1,0 +1,115 @@
+/* 
+ * Metadata Categories & Accordion Styles
+ */
+
+.category-group {
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-surface);
+  transition: all 0.2s ease;
+}
+
+.category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-header);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  border-bottom: 1px solid transparent;
+  transition: background 0.15s ease;
+}
+
+.category-header:hover {
+  background: var(--bg-hover);
+}
+
+.category-group.open .category-header {
+  border-bottom-color: var(--border-color);
+}
+
+.category-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-toggle-arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.category-group.open .category-toggle-arrow {
+  transform: rotate(90deg);
+}
+
+.category-badge {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.category-badge.has-selected {
+  background: var(--brand-primary);
+  color: #ffffff;
+}
+
+.category-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-select-btn {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.category-select-btn.select-all {
+  background: rgba(72, 187, 120, 0.12);
+  border: 1px solid rgba(72, 187, 120, 0.4);
+  color: var(--brand-success-hover);
+}
+
+.category-select-btn.select-all:hover {
+  background: rgba(72, 187, 120, 0.25);
+  border-color: var(--brand-success);
+  transform: translateY(-1px);
+}
+
+.category-select-btn.clear {
+  background: rgba(237, 137, 54, 0.12);
+  border: 1px solid rgba(237, 137, 54, 0.4);
+  color: var(--brand-warning-hover);
+}
+
+.category-select-btn.clear:hover {
+  background: rgba(237, 137, 54, 0.25);
+  border-color: var(--brand-warning);
+  transform: translateY(-1px);
+}
+
+.category-body {
+  display: none;
+  padding: 8px 12px;
+}
+
+.category-group.open .category-body {
+  display: block;
+}
